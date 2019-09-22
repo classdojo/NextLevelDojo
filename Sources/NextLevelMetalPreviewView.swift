@@ -42,7 +42,7 @@ public class NextLevelPreviewMetalView: MTKView {
         case aspectFill
     }
 
-    var previewContentMode: PreviewContentMode = .aspectFill
+    var previewContentMode: PreviewContentMode = .aspectFit
 
     var isEnabled: Bool = true
 
