@@ -1027,6 +1027,10 @@ extension NextLevel {
         if self._videoOutput == nil {
             self._videoOutput = AVCaptureVideoDataOutput()
             self._videoOutput?.alwaysDiscardsLateVideoFrames = forPreview
+
+            if forPreview, let previewView = self.customPreviewView {
+                previewView.flushTextureCache()
+            }
             
             var videoSettings = [String(kCVPixelBufferPixelFormatTypeKey):Int(kCVPixelFormatType_32BGRA)]
             if !self.isVideoCustomPreviewEnabled, let formatTypes = self._videoOutput?.availableVideoPixelFormatTypes {
@@ -2575,13 +2579,9 @@ extension NextLevel {
                     self.videoDelegate?.nextLevel(self, renderToCustomContextWithImageBuffer: imageBuffer, onQueue: self._sessionQueue)
 
                     if let customImageBuffer = self._sessionVideoCustomContextImageBuffer {
-                        self.executeClosureAsyncOnSessionQueueIfNecessary {
-                            previewView.pixelBuffer = customImageBuffer
-                        }
+                        previewView.pixelBuffer = customImageBuffer
                     } else {
-                        self.executeClosureAsyncOnSessionQueueIfNecessary {
-                            previewView.pixelBuffer = imageBuffer
-                        }
+                        previewView.pixelBuffer = imageBuffer
                     }
                     CVPixelBufferUnlockBaseAddress(imageBuffer, CVPixelBufferLockFlags(rawValue: 0))
                 } else {

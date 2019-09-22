@@ -37,6 +37,13 @@ public class NextLevelPreviewMetalView: MTKView {
         case rotate270Degrees
     }
 
+    enum PreviewContentMode {
+        case aspectFit
+        case aspectFill
+    }
+
+    var previewContentMode: PreviewContentMode = .aspectFill
+
     var isEnabled: Bool = true
 
     var shouldAutomaticallyAdjustMirroring: Bool = true
@@ -160,7 +167,8 @@ public class NextLevelPreviewMetalView: MTKView {
         }
         // Resize aspect ratio.
         resizeAspect = min(scaleX, scaleY)
-        if scaleX < scaleY {
+        let fitComparison = previewContentMode == .aspectFit ? scaleX < scaleY : scaleX > scaleY
+        if fitComparison {
             scaleY = scaleX / scaleY
             scaleX = 1.0
         } else {
