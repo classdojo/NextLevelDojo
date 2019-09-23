@@ -2587,9 +2587,13 @@ extension NextLevel {
                     self.videoDelegate?.nextLevel(self, renderToCustomContextWithImageBuffer: imageBuffer, onQueue: self._sessionQueue)
 
                     if let customImageBuffer = self._sessionVideoCustomContextImageBuffer {
-                        previewView.pixelBuffer = customImageBuffer
+                        self._sessionQueue.async {
+                            previewView.pixelBuffer = customImageBuffer
+                        }
                     } else {
-                        previewView.pixelBuffer = imageBuffer
+                        self._sessionQueue.async {
+                            previewView.pixelBuffer = imageBuffer
+                        }
                     }
                     CVPixelBufferUnlockBaseAddress(imageBuffer, CVPixelBufferLockFlags(rawValue: 0))
                 } else {
