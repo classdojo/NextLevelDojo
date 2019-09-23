@@ -48,6 +48,13 @@ public class NextLevelPreviewMetalRenderer: NSObject {
     var previewContentMode: PreviewContentMode = .aspectFit
 
     var isEnabled: Bool = true
+    
+    public var mirrorEdges: Bool = false {
+        didSet {
+            configureMetal()
+            resetTransform  = true
+        }
+    }
 
     var shouldAutomaticallyAdjustMirroring: Bool = true
 
@@ -110,6 +117,10 @@ public class NextLevelPreviewMetalRenderer: NSObject {
     private var internalBounds: CGRect!
 
     private var textureTranform: CGAffineTransform?
+    
+    private var scaleOffset: SIMD2<Float>?
+    
+    private var resetTransform: Bool = false
 
     func texturePointForView(point: CGPoint) -> CGPoint? {
         var result: CGPoint?
@@ -183,13 +194,31 @@ public class NextLevelPreviewMetalRenderer: NSObject {
         if textureMirroring {
             scaleX *= -1.0
         }
+        
+        var vertScaleX = scaleX
+        var vertScaleY = scaleY
+        if mirrorEdges {
+            vertScaleX = 1.0
+            vertScaleY = 1.0
+            scaleX = 1.0 / scaleX
+            scaleY = 1.0 / scaleY
+            scaleOffset = SIMD2<Float>(
+                Float((scaleX - 1.0) / 2.0),
+                Float((scaleY - 1.0) / 2.0)
+            )
+        } else {
+            scaleOffset = SIMD2<Float>(
+                Float(0.0),
+                Float(0.0)
+            )
+        }
 
         // Vertex coordinate takes the gravity into account.
         let vertexData: [Float] = [
-            -scaleX, -scaleY, 0.0, 1.0,
-            scaleX, -scaleY, 0.0, 1.0,
-            -scaleX, scaleY, 0.0, 1.0,
-            scaleX, scaleY, 0.0, 1.0
+            -vertScaleX, -vertScaleY, 0.0, 1.0,
+            vertScaleX, -vertScaleY, 0.0, 1.0,
+            -vertScaleX, vertScaleY, 0.0, 1.0,
+            vertScaleX, vertScaleY, 0.0, 1.0
         ]
         vertexCoordBuffer = metalBufferView!.device!.makeBuffer(bytes: vertexData, length: vertexData.count * MemoryLayout<Float>.size, options: [])
 
@@ -197,37 +226,71 @@ public class NextLevelPreviewMetalRenderer: NSObject {
         var textData: [Float]
         switch textureRotation {
         case .rotate0Degrees:
-            textData = [
-                0.0, 1.0,
-                1.0, 1.0,
-                0.0, 0.0,
-                1.0, 0.0
-            ]
-
+            if mirrorEdges {
+                textData = [
+                    0.0, scaleY,
+                    scaleX, scaleY,
+                    0.0, 0.0,
+                    scaleX, 0.0
+                ]
+            } else {
+               textData = [
+                   0.0, 1.0,
+                   1.0, 1.0,
+                   0.0, 0.0,
+                   1.0, 0.0
+               ]
+            }
         case .rotate180Degrees:
-            textData = [
-                1.0, 0.0,
-                0.0, 0.0,
-                1.0, 1.0,
-                0.0, 1.0
-            ]
-
+            if mirrorEdges {
+                textData = [
+                    scaleX, 0.0,
+                    0.0, 0.0,
+                    scaleX, scaleY,
+                    0.0, scaleY
+                ]
+            } else {
+                textData = [
+                    1.0, 0.0,
+                    0.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0
+                ]
+            }
         case .rotate90Degrees:
-            textData = [
-                1.0, 1.0,
-                1.0, 0.0,
-                0.0, 1.0,
-                0.0, 0.0
-            ]
-
+            if mirrorEdges {
+                textData = [
+                    scaleY, scaleX,
+                    scaleY, 0.0,
+                    0.0, scaleX,
+                    0.0, 0.0
+                ]
+            } else {
+               textData = [
+                   1.0, 1.0,
+                   1.0, 0.0,
+                   0.0, 1.0,
+                   0.0, 0.0
+               ]
+            }
         case .rotate270Degrees:
-            textData = [
-                0.0, 0.0,
-                0.0, 1.0,
-                1.0, 0.0,
-                1.0, 1.0
-            ]
+            if mirrorEdges {
+                textData = [
+                    0.0, 0.0,
+                    0.0, scaleX,
+                    scaleY, 0.0,
+                    scaleY, scaleX
+                 ]
+            } else {
+               textData = [
+                    0.0, 0.0,
+                    0.0, 1.0,
+                    1.0, 0.0,
+                    1.0, 1.0
+                ]
+            }
         }
+        
         textCoordBuffer = metalBufferView!.device?.makeBuffer(bytes: textData, length: textData.count * MemoryLayout<Float>.size, options: [])
 
         // Calculate the transform from texture coordinates to view coordinates
@@ -309,11 +372,17 @@ public class NextLevelPreviewMetalRenderer: NSObject {
         pipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
         pipelineDescriptor.vertexFunction = defaultLibrary.makeFunction(name: "vertexPassThrough")
         pipelineDescriptor.fragmentFunction = defaultLibrary.makeFunction(name: "fragmentPassThrough")
-
+        
         // To determine how textures are sampled, create a sampler descriptor to query for a sampler state from the device.
         let samplerDescriptor = MTLSamplerDescriptor()
-        samplerDescriptor.sAddressMode = .clampToEdge
-        samplerDescriptor.tAddressMode = .clampToEdge
+        
+        if mirrorEdges {
+            samplerDescriptor.sAddressMode = .mirrorRepeat
+            samplerDescriptor.tAddressMode = .mirrorRepeat
+        } else {
+           samplerDescriptor.sAddressMode = .clampToEdge
+           samplerDescriptor.tAddressMode = .clampToEdge
+        }
         samplerDescriptor.minFilter = .linear
         samplerDescriptor.magFilter = .linear
         sampler = bufferView.device!.makeSamplerState(descriptor: samplerDescriptor)
@@ -392,8 +461,10 @@ extension NextLevelPreviewMetalRenderer: MTKViewDelegate {
             texture.height != textureHeight ||
             view.bounds != internalBounds ||
             mirroring != textureMirroring ||
-            rotation != textureRotation {
+            rotation != textureRotation ||
+            resetTransform {
             setupTransform(width: texture.width, height: texture.height, mirroring: mirroring, rotation: rotation)
+            resetTransform = false
         }
 
         // Set up command buffer and encoder
@@ -421,6 +492,7 @@ extension NextLevelPreviewMetalRenderer: MTKViewDelegate {
         commandEncoder.setVertexBuffer(textCoordBuffer, offset: 0, index: 1)
         commandEncoder.setFragmentTexture(texture, index: 0)
         commandEncoder.setFragmentSamplerState(sampler, index: 0)
+        commandEncoder.setFragmentBytes(&scaleOffset, length: MemoryLayout.size(ofValue: scaleOffset), index: 0)
         commandEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         commandEncoder.endEncoding()
 

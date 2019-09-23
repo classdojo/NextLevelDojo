@@ -48,7 +48,9 @@ vertex VertexIO vertexPassThrough(const device packed_float4 *pPosition  [[ buff
 // Fragment shader for a textured quad
 fragment half4 fragmentPassThrough(VertexIO         inputFragment [[ stage_in ]],
                                    texture2d<half> inputTexture  [[ texture(0) ]],
-                                   sampler         samplr        [[ sampler(0) ]])
+                                   sampler         samplr        [[ sampler(0) ]],
+                                   device const float2 & scaleOffset [[ buffer(0) ]])
 {
-    return inputTexture.sample(samplr, inputFragment.textureCoord);
+    
+    return inputTexture.sample(samplr, inputFragment.textureCoord - scaleOffset);
 }
