@@ -857,7 +857,9 @@ extension NextLevel {
             if self.captureMode == .video {
                 let _ = self.addAudioOuput()
             }
-            let _ = self.addVideoOutput()
+            if !self.isVideoCustomPreviewEnabled || self._videoOutput == nil {
+                let _ = self.addVideoOutput()
+            }
             #if USE_TRUE_DEPTH
             if self.depthDataCaptureEnabled {
                 let _ = self.addDepthDataOutput()
@@ -874,7 +876,7 @@ extension NextLevel {
                 }
             }
 
-            if self.isVideoCustomPreviewEnabled {
+            if self.isVideoCustomPreviewEnabled && self._videoOutput == nil {
                 let _ = self.addVideoOutput(forPreview: true)
             }
 
@@ -1217,10 +1219,6 @@ extension NextLevel {
                 session.removeOutput(photoOutput)
                 self._photoOutput = nil
             }
-            if self.isVideoCustomPreviewEnabled, let videoOutput = self._videoOutput, session.outputs.contains(videoOutput) {
-                session.removeOutput(videoOutput)
-                self._videoOutput = nil
-            }
             break
         case .videoWithoutAudio:
             if let photoOutput = self._photoOutput, session.outputs.contains(photoOutput) {
@@ -1231,13 +1229,9 @@ extension NextLevel {
                 session.removeOutput(audioOutput)
                 self._audioOutput = nil
             }
-            if self.isVideoCustomPreviewEnabled, let videoOutput = self._videoOutput, session.outputs.contains(videoOutput) {
-                session.removeOutput(videoOutput)
-                self._videoOutput = nil
-            }
             break
         case .photo:
-            if let videoOutput = self._videoOutput, session.outputs.contains(videoOutput) {
+            if !self.isVideoCustomPreviewEnabled, let videoOutput = self._videoOutput, session.outputs.contains(videoOutput) {
                 session.removeOutput(videoOutput)
                 self._videoOutput = nil
             }
