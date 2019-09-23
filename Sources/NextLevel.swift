@@ -657,7 +657,6 @@ extension NextLevel {
                     self.previewLayer.session = session
                 }
 
-                
                 self.configureSession()
                 self.configureSessionDevices()
                 self.configureMetadataObjects()
