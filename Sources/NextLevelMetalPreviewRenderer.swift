@@ -28,7 +28,7 @@ import CoreMedia
 import Metal
 import MetalKit
 
-public class NextLevelPreviewMetalView: MTKView {
+public class NextLevelPreviewMetalRenderer: NSObject {
 
     enum Rotation: Int {
         case rotate0Degrees
@@ -41,6 +41,9 @@ public class NextLevelPreviewMetalView: MTKView {
         case aspectFit
         case aspectFill
     }
+
+    /// Renders into this view - add it to your view hierarchy
+    public var metalBufferView: MTKView?
 
     var previewContentMode: PreviewContentMode = .aspectFit
 
@@ -75,6 +78,7 @@ public class NextLevelPreviewMetalView: MTKView {
                     return
                 }
                 internalPixelBuffer = pixelBuffer
+                self.metalBufferView?.draw()
             }
         }
     }
@@ -148,7 +152,7 @@ public class NextLevelPreviewMetalView: MTKView {
         var scaleY: Float = 1.0
         var resizeAspect: Float = 1.0
 
-        internalBounds = self.bounds
+        internalBounds = metalBufferView?.bounds ?? .zero
         textureWidth = width
         textureHeight = height
         textureMirroring = mirroring
@@ -187,7 +191,7 @@ public class NextLevelPreviewMetalView: MTKView {
             -scaleX, scaleY, 0.0, 1.0,
             scaleX, scaleY, 0.0, 1.0
         ]
-        vertexCoordBuffer = device!.makeBuffer(bytes: vertexData, length: vertexData.count * MemoryLayout<Float>.size, options: [])
+        vertexCoordBuffer = metalBufferView!.device!.makeBuffer(bytes: vertexData, length: vertexData.count * MemoryLayout<Float>.size, options: [])
 
         // Texture coordinate takes the rotation into account.
         var textData: [Float]
@@ -224,7 +228,7 @@ public class NextLevelPreviewMetalView: MTKView {
                 1.0, 1.0
             ]
         }
-        textCoordBuffer = device?.makeBuffer(bytes: textData, length: textData.count * MemoryLayout<Float>.size, options: [])
+        textCoordBuffer = metalBufferView!.device?.makeBuffer(bytes: textData, length: textData.count * MemoryLayout<Float>.size, options: [])
 
         // Calculate the transform from texture coordinates to view coordinates
         var transform = CGAffineTransform.identity
@@ -258,33 +262,44 @@ public class NextLevelPreviewMetalView: MTKView {
         textureTranform = transform.inverted()
     }
 
-    override public init(frame frameRect: CGRect, device: MTLDevice?) {
-        super.init(frame: frameRect, device: nil)
-        setup()
-    }
-
-    required init(coder: NSCoder) {
-        super.init(coder: coder)
+    override public init() {
+        super.init()
         setup()
     }
 
     func setup() {
 
-        device = MTLCreateSystemDefaultDevice()
+        let metalDevice = MTLCreateSystemDefaultDevice()
+
+        metalBufferView = MTKView(frame: .zero, device: metalDevice)
+
+        guard let bufferView = metalBufferView else {
+            fatalError("Unable to make metal buffer view.")
+        }
+
+        bufferView.contentScaleFactor = UIScreen.main.nativeScale
+        bufferView.framebufferOnly = true
+        bufferView.colorPixelFormat = .bgra8Unorm
+        bufferView.isPaused = true
+        bufferView.enableSetNeedsDisplay = false
+        bufferView.delegate = self
 
         configureMetal()
 
         createTextureCache()
 
-        //colorPixelFormat = .bgra8Unorm
-        colorPixelFormat = .bgra8Unorm
     }
 
     func configureMetal() {
+
+        guard let bufferView = metalBufferView else {
+            fatalError("Unable to make metal buffer view.")
+        }
+
         let frameworkBundle = Bundle(for: type(of: self))
         var defaultLibrary: MTLLibrary
         do {
-            defaultLibrary = try device!.makeDefaultLibrary(bundle: frameworkBundle)
+            defaultLibrary = try bufferView.device!.makeDefaultLibrary(bundle: frameworkBundle)
             print(defaultLibrary.functionNames)
         } catch {
             fatalError("Unable to make metal default library. (\(error))")
@@ -301,40 +316,50 @@ public class NextLevelPreviewMetalView: MTKView {
         samplerDescriptor.tAddressMode = .clampToEdge
         samplerDescriptor.minFilter = .linear
         samplerDescriptor.magFilter = .linear
-        sampler = device!.makeSamplerState(descriptor: samplerDescriptor)
+        sampler = bufferView.device!.makeSamplerState(descriptor: samplerDescriptor)
 
         do {
-            renderPipelineState = try device!.makeRenderPipelineState(descriptor: pipelineDescriptor)
+            renderPipelineState = try bufferView.device!.makeRenderPipelineState(descriptor: pipelineDescriptor)
         } catch {
             fatalError("Unable to create preview Metal view pipeline state. (\(error))")
         }
 
-        commandQueue = device!.makeCommandQueue()
+        commandQueue = bufferView.device!.makeCommandQueue()
     }
 
     func createTextureCache() {
+
+        guard let bufferView = metalBufferView else {
+            fatalError("Unable to make metal buffer view.")
+        }
+
         var newTextureCache: CVMetalTextureCache?
-        if CVMetalTextureCacheCreate(kCFAllocatorDefault, nil, device!, nil, &newTextureCache) == kCVReturnSuccess {
+        if CVMetalTextureCacheCreate(kCFAllocatorDefault, nil, bufferView.device!, nil, &newTextureCache) == kCVReturnSuccess {
             textureCache = newTextureCache
         } else {
             assertionFailure("Unable to allocate texture cache")
         }
     }
 
-    /// - Tag: DrawMetalTexture
-    override public func draw(_ rect: CGRect) {
+}
+
+extension NextLevelPreviewMetalRenderer: MTKViewDelegate {
+
+    final public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
+    }
+
+    final public func draw(in view: MTKView) {
+
         var pixelBuffer: CVPixelBuffer?
         var mirroring = false
         var rotation: Rotation = .rotate0Degrees
 
-        syncQueue.sync {
-            pixelBuffer = internalPixelBuffer
-            mirroring = internalMirroring
-            rotation = internalRotation
-        }
+        pixelBuffer = internalPixelBuffer
+        mirroring = internalMirroring
+        rotation = internalRotation
 
-        guard let drawable = currentDrawable,
-            let currentRenderPassDescriptor = currentRenderPassDescriptor,
+        guard let drawable = view.currentDrawable,
+            let currentRenderPassDescriptor = view.currentRenderPassDescriptor,
             let previewPixelBuffer = pixelBuffer else {
                 return
         }
@@ -365,7 +390,7 @@ public class NextLevelPreviewMetalView: MTKView {
 
         if texture.width != textureWidth ||
             texture.height != textureHeight ||
-            self.bounds != internalBounds ||
+            view.bounds != internalBounds ||
             mirroring != textureMirroring ||
             rotation != textureRotation {
             setupTransform(width: texture.width, height: texture.height, mirroring: mirroring, rotation: rotation)
@@ -402,5 +427,7 @@ public class NextLevelPreviewMetalView: MTKView {
         // Draw to the screen.
         commandBuffer.present(drawable)
         commandBuffer.commit()
+
     }
+
 }

@@ -29,6 +29,7 @@ import AVFoundation
 import CoreImage
 import CoreVideo
 import Metal
+import MetalKit
 #if USE_ARKIT
 import ARKit
 #endif
@@ -241,10 +242,17 @@ public class NextLevel: NSObject {
     /// Live camera preview, add as a subview to your application if you are
     /// doing custom rendering that should appear in the preview. For performance
     /// reasons, do not use this view if you are not doing custom rendering.
-    public var customPreviewView: NextLevelPreviewMetalView? {
+    public var customPreviewRenderer: NextLevelPreviewMetalRenderer? {
         willSet {
             self._videoCustomRenderPreviewEnabled = newValue != nil
         }
+    }
+
+    /// Live camera preview, add as a subview to your application if you are
+    /// doing custom rendering that should appear in the preview. For performance
+    /// reasons, do not use this view if you are not doing custom rendering.
+    public var customPreviewView: MTKView? {
+        return customPreviewRenderer?.metalBufferView
     }
 
     // capture configuration
@@ -1028,7 +1036,7 @@ extension NextLevel {
             self._videoOutput = AVCaptureVideoDataOutput()
             self._videoOutput?.alwaysDiscardsLateVideoFrames = forPreview
 
-            if forPreview, let previewView = self.customPreviewView {
+            if forPreview, let previewView = self.customPreviewRenderer {
                 previewView.flushTextureCache()
             }
             
@@ -1289,7 +1297,7 @@ extension NextLevel {
     public func freezePreview() {
         if !self.isVideoCustomPreviewEnabled, let previewConnection = self.previewLayer.connection {
             previewConnection.isEnabled = false
-        } else if let previewView = self.customPreviewView {
+        } else if let previewView = self.customPreviewRenderer {
             previewView.isEnabled = false
         }
     }
@@ -1298,7 +1306,7 @@ extension NextLevel {
     public func unfreezePreview() {
         if !self.isVideoCustomPreviewEnabled, let previewConnection = self.previewLayer.connection {
             previewConnection.isEnabled = true
-        } else if let previewView = self.customPreviewView {
+        } else if let previewView = self.customPreviewRenderer {
             previewView.isEnabled = true
         }
     }
@@ -1342,7 +1350,7 @@ extension NextLevel {
                 previewConnection.videoOrientation = currentOrientation
                 didChangeOrientation = true
             }
-        } else if let previewView = self.customPreviewView, let videoOutput = self._videoOutput, let videoConnection = videoOutput.connection(with: AVMediaType.video) {
+        } else if self.customPreviewRenderer != nil, let videoOutput = self._videoOutput, let videoConnection = videoOutput.connection(with: AVMediaType.video) {
             if videoConnection.isVideoOrientationSupported && videoConnection.videoOrientation != currentOrientation {
                 // TODO: set video orientation
             }
@@ -1395,7 +1403,7 @@ extension NextLevel {
                         return .auto
                     }
                 }
-            } else if let previewView = self.customPreviewView {
+            } else if let previewView = self.customPreviewRenderer {
                 if previewView.shouldAutomaticallyAdjustMirroring {
                     return .auto
                 } else {
@@ -1423,7 +1431,7 @@ extension NextLevel {
                         pc.automaticallyAdjustsVideoMirroring = false
                         pc.isVideoMirrored = false
                     }
-                } else if let previewView = self.customPreviewView, let vc = videoOutput.connection(with: AVMediaType.video) {
+                } else if let previewView = self.customPreviewRenderer, let vc = videoOutput.connection(with: AVMediaType.video) {
                     if vc.isVideoMirroringSupported {
                         previewView.shouldAutomaticallyAdjustMirroring = false
                         previewView.mirroring = false
@@ -1441,7 +1449,7 @@ extension NextLevel {
                             pc.automaticallyAdjustsVideoMirroring = false
                             pc.isVideoMirrored = true
                         }
-                } else if let previewView = self.customPreviewView, let vc = videoOutput.connection(with: AVMediaType.video) {
+                } else if let previewView = self.customPreviewRenderer, let vc = videoOutput.connection(with: AVMediaType.video) {
                    if vc.isVideoMirroringSupported {
                         previewView.shouldAutomaticallyAdjustMirroring = false
                         previewView.mirroring = true
@@ -1458,7 +1466,7 @@ extension NextLevel {
                     if pc.isVideoMirroringSupported {
                         pc.automaticallyAdjustsVideoMirroring = true
                     }
-                } else if let previewView = self.customPreviewView, let vc = videoOutput.connection(with: AVMediaType.video) {
+                } else if let previewView = self.customPreviewRenderer, let vc = videoOutput.connection(with: AVMediaType.video) {
                     if vc.isVideoMirroringSupported {
                         previewView.shouldAutomaticallyAdjustMirroring = true
                     }
@@ -2423,9 +2431,9 @@ extension NextLevel {
                 self._videoCustomRenderPreviewEnabled = newValue
                 self._sessionVideoCustomContextImageBuffer = nil
                 if newValue == true {
-                    self.customPreviewView = NextLevelPreviewMetalView(frame: .zero)
+                    self.customPreviewRenderer = NextLevelPreviewMetalRenderer()
                 } else {
-                    self.customPreviewView = nil
+                    self.customPreviewRenderer = nil
                 }
             }
         }
@@ -2566,12 +2574,12 @@ extension NextLevel {
             }
         }
 
-        if self.isVideoCustomPreviewEnabled, let previewView = self.customPreviewView, previewView.shouldAutomaticallyAdjustMirroring {
+        if self.isVideoCustomPreviewEnabled, let previewView = self.customPreviewRenderer, previewView.shouldAutomaticallyAdjustMirroring {
             previewView.mirroring = self.devicePosition == .front ? true : false
         }
 
         var imageBuffer: CVImageBuffer?
-        if self.isVideoCustomPreviewEnabled, let previewView = self.customPreviewView {
+        if self.isVideoCustomPreviewEnabled, let previewView = self.customPreviewRenderer {
             imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer)
             if let imageBuffer = imageBuffer {
                 if CVPixelBufferLockBaseAddress(imageBuffer, CVPixelBufferLockFlags(rawValue: 0)) == kCVReturnSuccess {
@@ -3217,7 +3225,7 @@ extension NextLevel {
             
             if object.focusMode != .locked {
                 DispatchQueue.main.async {
-                    if let previewView = strongSelf.customPreviewView, previewView.shouldAutomaticallyAdjustMirroring {
+                    if let previewView = strongSelf.customPreviewRenderer, previewView.shouldAutomaticallyAdjustMirroring {
                         previewView.mirroring = strongSelf.devicePosition == .front ? true : false
                     }
                     strongSelf.deviceDelegate?.nextLevel(strongSelf, didChangeLensPosition: object.lensPosition)
