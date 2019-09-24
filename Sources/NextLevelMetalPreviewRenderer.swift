@@ -45,9 +45,7 @@ public class NextLevelPreviewMetalRenderer: NSObject {
     /// Renders into this view - add it to your view hierarchy
     public var metalBufferView: MTKView?
 
-    var previewContentMode: PreviewContentMode = .aspectFit
-
-    var isEnabled: Bool = true
+    public var isEnabled: Bool = true
     
     public var mirrorEdges: Bool = false {
         didSet {
@@ -55,6 +53,8 @@ public class NextLevelPreviewMetalRenderer: NSObject {
             resetTransform  = true
         }
     }
+    
+    var previewContentMode: PreviewContentMode = .aspectFit
 
     var shouldAutomaticallyAdjustMirroring: Bool = true
 
