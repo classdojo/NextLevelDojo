@@ -27,6 +27,7 @@
 import CoreMedia
 import Metal
 import MetalKit
+import MetalPerformanceShaders
 
 public class NextLevelPreviewMetalRenderer: NSObject {
 
@@ -45,7 +46,7 @@ public class NextLevelPreviewMetalRenderer: NSObject {
     /// Renders into this view - add it to your view hierarchy
     public var metalBufferView: MTKView?
 
-    public var isEnabled: Bool = true
+    var isEnabled: Bool = true
     
     public var mirrorEdges: Bool = false {
         didSet {
@@ -53,6 +54,8 @@ public class NextLevelPreviewMetalRenderer: NSObject {
             resetTransform  = true
         }
     }
+
+    public var mirrorEdgesBlur: Float = 32.0
     
     var previewContentMode: PreviewContentMode = .aspectFit
 
@@ -370,9 +373,14 @@ public class NextLevelPreviewMetalRenderer: NSObject {
 
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
         pipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+
         pipelineDescriptor.vertexFunction = defaultLibrary.makeFunction(name: "vertexPassThrough")
-        pipelineDescriptor.fragmentFunction = defaultLibrary.makeFunction(name: "fragmentPassThrough")
-        
+        if mirrorEdges && mirrorEdgesBlur > 0 {
+            pipelineDescriptor.fragmentFunction = defaultLibrary.makeFunction(name: "fragmentPassThroughMirrorEdgesBlur")
+        } else {
+            pipelineDescriptor.fragmentFunction = defaultLibrary.makeFunction(name: "fragmentPassThrough")
+        }
+
         // To determine how textures are sampled, create a sampler descriptor to query for a sampler state from the device.
         let samplerDescriptor = MTLSamplerDescriptor()
         
@@ -480,6 +488,15 @@ extension NextLevelPreviewMetalRenderer: MTKViewDelegate {
             return
         }
 
+        var blurredTexture: MTLTexture?
+        if mirrorEdges && mirrorEdgesBlur > 0,
+            let destinationTexture = view.device!.makeTexture(descriptor: texture.matchingDescriptor()) {
+            let kernel = MPSImageGaussianBlur(device: view.device!,
+              sigma: mirrorEdgesBlur)
+            kernel.encode(commandBuffer: commandBuffer, sourceTexture: texture, destinationTexture: destinationTexture)
+            blurredTexture = destinationTexture
+        }
+
         guard let commandEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: currentRenderPassDescriptor) else {
             print("Failed to create Metal command encoder")
             CVMetalTextureCacheFlush(textureCache!, 0)
@@ -491,7 +508,11 @@ extension NextLevelPreviewMetalRenderer: MTKViewDelegate {
         commandEncoder.setVertexBuffer(vertexCoordBuffer, offset: 0, index: 0)
         commandEncoder.setVertexBuffer(textCoordBuffer, offset: 0, index: 1)
         commandEncoder.setFragmentTexture(texture, index: 0)
+        if mirrorEdges && mirrorEdgesBlur > 0 {
+            commandEncoder.setFragmentTexture(blurredTexture!, index: 1)
+        }
         commandEncoder.setFragmentSamplerState(sampler, index: 0)
+
         commandEncoder.setFragmentBytes(&scaleOffset, length: MemoryLayout.size(ofValue: scaleOffset), index: 0)
         commandEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         commandEncoder.endEncoding()
@@ -502,4 +523,20 @@ extension NextLevelPreviewMetalRenderer: MTKViewDelegate {
 
     }
 
+}
+
+extension MTLTexture {
+    /// Utility function for building a descriptor that matches this texture
+    func matchingDescriptor() -> MTLTextureDescriptor {
+        let descriptor = MTLTextureDescriptor()
+        descriptor.textureType = self.textureType
+        // NOTE: We should be more careful to select a renderable pixel format here,
+        // especially if operating on a compressed texture.
+        descriptor.pixelFormat = self.pixelFormat
+        descriptor.width = self.width
+        descriptor.height = self.height
+        descriptor.mipmapLevelCount = self.mipmapLevelCount
+        descriptor.usage = [.shaderRead, .shaderWrite]
+        return descriptor
+    }
 }

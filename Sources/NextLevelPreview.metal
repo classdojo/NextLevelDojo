@@ -2,8 +2,7 @@
 //  NextLevelPreview.metal
 //  NextLevel (http://nextlevel.engineering/)
 //
-//  Copyright © 2019 Apple Inc.
-//  Copyright (c) 2016-present patrick piemonte (http://patrickpiemonte.com)
+//  Copyright (c) 2016-present Liam Don
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -53,4 +52,29 @@ fragment half4 fragmentPassThrough(VertexIO         inputFragment [[ stage_in ]]
 {
     
     return inputTexture.sample(samplr, inputFragment.textureCoord - scaleOffset);
+}
+
+// Fragment shader for a textured quad
+fragment half4 fragmentPassThroughMirrorEdgesBlur(VertexIO         inputFragment [[ stage_in ]],
+                                   texture2d<half> inputTexture   [[ texture(0) ]],
+                                   texture2d<half> blurredTexture [[ texture(1) ]],
+                                   sampler         samplr        [[ sampler(0) ]],
+                                   device const float2 & scaleOffset [[ buffer(0) ]])
+
+{
+
+    float2 blurTextureCoord1 = ((inputFragment.textureCoord + float2(0.0, 0.1)) - float2(0.5, 0.5)) * float2(0.95, 1.1) + float2(0.5, 0.5);
+    float2 blurTextureCoord2 = ((inputFragment.textureCoord - scaleOffset - scaleOffset - float2(0.0, 0.1)) - float2(0.5, 0.5)) * float2(0.95, 1.1) + float2(0.5, 0.5);
+
+    half4 mainColor = inputTexture.sample(samplr, inputFragment.textureCoord - scaleOffset);
+
+    half4 blurColor1 = blurredTexture.sample(samplr, blurTextureCoord1) - half4(0.1);
+    half4 blurColor2 = blurredTexture.sample(samplr, blurTextureCoord2) - half4(0.1);
+
+    float y = inputFragment.textureCoord.y - scaleOffset.y;
+
+    float n1 = clamp(step(0.0, y), 0.0, 1.0);
+    float n2 = clamp(step(y, 1.0), 0.0, 1.0);
+
+    return mix(blurColor2, mix(blurColor1, mainColor, half4(n1, n1, n1, n1)), half4(n2, n2, n2, n2));
 }
