@@ -119,6 +119,7 @@ public enum NextLevelCaptureMode: Int, CustomStringConvertible {
     case videoWithoutAudio
     case movie
     case arKit
+    case photoVideo
     
     public var description: String {
         get {
@@ -135,6 +136,8 @@ public enum NextLevelCaptureMode: Int, CustomStringConvertible {
                 return "Movie"
             case .arKit:
                 return "ARKit"
+            case .photoVideo:
+                return "Photo and video"
             }
         }
     }
@@ -570,7 +573,7 @@ extension NextLevel {
             fallthrough
         case .movie:
             fallthrough
-        case .video:
+        case .video, .photoVideo:
             let audioStatus = NextLevel.authorizationStatus(forMediaType: AVMediaType.audio)
             let videoStatus = NextLevel.authorizationStatus(forMediaType: AVMediaType.video)
             return (audioStatus == .authorized && videoStatus == .authorized) ? .authorized : .notAuthorized
@@ -761,7 +764,7 @@ extension NextLevel {
         case .audio:
             shouldConfigureAudio = true
             break
-        case .video:
+        case .video, .photoVideo:
             shouldConfigureVideo = true
             shouldConfigureAudio = true
             break
@@ -866,7 +869,7 @@ extension NextLevel {
             }
             #endif
             break
-        case .photo:
+        case .photo, .photoVideo:
 
             if session.sessionPreset != self.photoConfiguration.preset {
                 if session.canSetSessionPreset(self.photoConfiguration.preset) {
@@ -876,7 +879,7 @@ extension NextLevel {
                 }
             }
 
-            if self.isVideoCustomPreviewEnabled && self._videoOutput == nil {
+            if (self.isVideoCustomPreviewEnabled || self.captureMode == .photoVideo) && self._videoOutput == nil {
                 let _ = self.addVideoOutput(forPreview: true)
             }
 
@@ -1274,6 +1277,8 @@ extension NextLevel {
                 self._photoOutput = nil
             }
             break
+        case .photoVideo:
+            break
         }
         
     }
@@ -1343,9 +1348,11 @@ extension NextLevel {
                 previewConnection.videoOrientation = currentOrientation
                 didChangeOrientation = true
             }
-        } else if self.customPreviewRenderer != nil, let videoOutput = self._videoOutput, let videoConnection = videoOutput.connection(with: AVMediaType.video) {
+        } else if let previewRenderer = self.customPreviewRenderer, let videoOutput = self._videoOutput, let videoConnection = videoOutput.connection(with: AVMediaType.video) {
             if videoConnection.isVideoOrientationSupported && videoConnection.videoOrientation != currentOrientation {
-                // TODO: set video orientation
+                if videoConnection.isVideoMirroringSupported && previewRenderer.shouldAutomaticallyAdjustMirroring {
+                    videoConnection.isVideoMirrored = devicePosition == .front
+                }
             }
         }
         

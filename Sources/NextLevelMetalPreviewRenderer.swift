@@ -25,6 +25,7 @@
 //
 
 import CoreMedia
+import AVFoundation
 import Metal
 import MetalKit
 import MetalPerformanceShaders
@@ -46,10 +47,21 @@ public class NextLevelPreviewMetalRenderer: NSObject {
     /// Renders into this view - add it to your view hierarchy
     public var metalBufferView: MTKView?
 
+    public var deviceOrientation: NextLevelDeviceOrientation = .portrait
+
+    public var previewBounds: CGRect?
+
+    public var aspectRatio: NextLevelConfiguration.AspectRatio = .active {
+       didSet {
+            resetTransform  = true
+       }
+    }
+
     var isEnabled: Bool = true
     
     public var mirrorEdges: Bool = false {
         didSet {
+
             configureMetal()
             resetTransform  = true
         }
@@ -57,7 +69,7 @@ public class NextLevelPreviewMetalRenderer: NSObject {
 
     public var mirrorEdgesBlur: Float = 32.0
     
-    var previewContentMode: PreviewContentMode = .aspectFit
+    var previewContentMode: PreviewContentMode = .aspectFill
 
     var shouldAutomaticallyAdjustMirroring: Bool = true
 
@@ -166,37 +178,58 @@ public class NextLevelPreviewMetalRenderer: NSObject {
         var scaleY: Float = 1.0
         var resizeAspect: Float = 1.0
 
-        internalBounds = metalBufferView?.bounds ?? .zero
+        guard let metalBufferView = metalBufferView else {
+            return
+        }
+
+        var viewBounds = previewBounds ?? metalBufferView.bounds
+        //var viewBounds = metalBufferView.bounds
+        if let ratioDimensions = aspectRatio.dimensions {
+            //let ratio = viewBounds.width > viewBounds.height ? ratioDimensions : CGSize(width: ratioDimensions.height, height: ratioDimensions.width)
+            internalBounds = AVMakeRect(aspectRatio: ratioDimensions, insideRect: viewBounds)
+        } else {
+            internalBounds = viewBounds
+        }
+
         textureWidth = width
         textureHeight = height
         textureMirroring = mirroring
         textureRotation = rotation
 
         if textureWidth > 0 && textureHeight > 0 {
-            switch textureRotation {
-            case .rotate0Degrees, .rotate180Degrees:
+            if textureHeight > textureWidth {
                 scaleX = Float(internalBounds.width / CGFloat(textureWidth))
                 scaleY = Float(internalBounds.height / CGFloat(textureHeight))
-
-            case .rotate90Degrees, .rotate270Degrees:
-                scaleX = Float(internalBounds.width / CGFloat(textureHeight))
-                scaleY = Float(internalBounds.height / CGFloat(textureWidth))
+            } else {
+                scaleX = Float(internalBounds.width / CGFloat(textureWidth))
+                scaleY = Float(internalBounds.height / CGFloat(textureHeight))
             }
+//            switch textureRotation {
+//            case .rotate0Degrees, .rotate180Degrees:
+//                scaleX = Float(internalBounds.width / CGFloat(textureWidth))
+//                scaleY = Float(internalBounds.height / CGFloat(textureHeight))
+//
+//            case .rotate90Degrees, .rotate270Degrees:
+//                scaleX = Float(internalBounds.width / CGFloat(textureHeight))
+//                scaleY = Float(internalBounds.height / CGFloat(textureWidth))
+//            }
         }
         // Resize aspect ratio.
         resizeAspect = min(scaleX, scaleY)
         let fitComparison = previewContentMode == .aspectFit ? scaleX < scaleY : scaleX > scaleY
         if fitComparison {
             scaleY = scaleX / scaleY
-            scaleX = 1.0
+            scaleX = Float(internalBounds.width / metalBufferView.bounds.width)
         } else {
-            scaleX = scaleY / scaleX
-            scaleY = 1.0
+            if internalBounds.height > internalBounds.width  {
+                scaleX = 1.0
+                scaleY = Float(internalBounds.height / max(metalBufferView.bounds.width, metalBufferView.bounds.height))
+            } else {
+                scaleX = Float(internalBounds.width / max(metalBufferView.bounds.width, metalBufferView.bounds.height))
+                scaleY = 1.0
+            }
         }
 
-        if textureMirroring {
-            scaleX *= -1.0
-        }
         
         var vertScaleX = scaleX
         var vertScaleY = scaleY
@@ -223,7 +256,7 @@ public class NextLevelPreviewMetalRenderer: NSObject {
             -vertScaleX, vertScaleY, 0.0, 1.0,
             vertScaleX, vertScaleY, 0.0, 1.0
         ]
-        vertexCoordBuffer = metalBufferView!.device!.makeBuffer(bytes: vertexData, length: vertexData.count * MemoryLayout<Float>.size, options: [])
+        vertexCoordBuffer = metalBufferView.device!.makeBuffer(bytes: vertexData, length: vertexData.count * MemoryLayout<Float>.size, options: [])
 
         // Texture coordinate takes the rotation into account.
         var textData: [Float]
@@ -294,7 +327,7 @@ public class NextLevelPreviewMetalRenderer: NSObject {
             }
         }
         
-        textCoordBuffer = metalBufferView!.device?.makeBuffer(bytes: textData, length: textData.count * MemoryLayout<Float>.size, options: [])
+        textCoordBuffer = metalBufferView.device?.makeBuffer(bytes: textData, length: textData.count * MemoryLayout<Float>.size, options: [])
 
         // Calculate the transform from texture coordinates to view coordinates
         var transform = CGAffineTransform.identity
@@ -333,6 +366,12 @@ public class NextLevelPreviewMetalRenderer: NSObject {
         setup()
     }
 
+    public func reset() {
+        flushTextureCache()
+        configureMetal()
+        createTextureCache()
+    }
+
     func setup() {
 
         let metalDevice = MTLCreateSystemDefaultDevice()
@@ -351,7 +390,6 @@ public class NextLevelPreviewMetalRenderer: NSObject {
         bufferView.delegate = self
 
         configureMetal()
-
         createTextureCache()
 
     }
@@ -467,7 +505,7 @@ extension NextLevelPreviewMetalRenderer: MTKViewDelegate {
 
         if texture.width != textureWidth ||
             texture.height != textureHeight ||
-            view.bounds != internalBounds ||
+            //view.bounds != internalBounds ||
             mirroring != textureMirroring ||
             rotation != textureRotation ||
             resetTransform {

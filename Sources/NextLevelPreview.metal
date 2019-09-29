@@ -63,15 +63,19 @@ fragment half4 fragmentPassThroughMirrorEdgesBlur(VertexIO         inputFragment
 
 {
 
-    float2 blurTextureCoord1 = ((inputFragment.textureCoord + float2(0.0, 0.1)) - float2(0.5, 0.5)) * float2(0.95, 1.1) + float2(0.5, 0.5);
-    float2 blurTextureCoord2 = ((inputFragment.textureCoord - scaleOffset - scaleOffset - float2(0.0, 0.1)) - float2(0.5, 0.5)) * float2(0.95, 1.1) + float2(0.5, 0.5);
+//    float2 blurTextureCoord1 = ((inputFragment.textureCoord + float2(0.0, 0.1)) - float2(0.5, 0.5)) * float2(0.95, 1.1) + float2(0.5, 0.5);
+//    float2 blurTextureCoord2 = ((inputFragment.textureCoord - scaleOffset - scaleOffset - float2(0.0, 0.1)) - float2(0.5, 0.5)) * float2(0.95, 1.1) + float2(0.5, 0.5);
+
+    float2 blurTextureCoord1 = inputFragment.textureCoord;
+    float2 blurTextureCoord2 = inputFragment.textureCoord - scaleOffset - scaleOffset;
 
     half4 mainColor = inputTexture.sample(samplr, inputFragment.textureCoord - scaleOffset);
 
-    half4 blurColor1 = blurredTexture.sample(samplr, blurTextureCoord1) - half4(0.1);
-    half4 blurColor2 = blurredTexture.sample(samplr, blurTextureCoord2) - half4(0.1);
+    half4 blurColor1 = blurredTexture.sample(samplr, blurTextureCoord1);
+    half4 blurColor2 = blurredTexture.sample(samplr, blurTextureCoord2);
 
-    float y = inputFragment.textureCoord.y - scaleOffset.y;
+    float y = (inputFragment.textureCoord.x * step(0.0001, abs(scaleOffset.x)) - abs(scaleOffset.x)) + (inputFragment.textureCoord.y * step(0.0001, abs(scaleOffset.y)) - abs(scaleOffset.y));
+    //float y = inputFragment.textureCoord.x - scaleOffset.x;
 
     float n1 = clamp(step(0.0, y), 0.0, 1.0);
     float n2 = clamp(step(y, 1.0), 0.0, 1.0);
