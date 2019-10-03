@@ -182,10 +182,8 @@ public class NextLevelPreviewMetalRenderer: NSObject {
             return
         }
 
-        var viewBounds = previewBounds ?? metalBufferView.bounds
-        //var viewBounds = metalBufferView.bounds
+        let viewBounds = previewBounds ?? metalBufferView.bounds
         if let ratioDimensions = aspectRatio.dimensions {
-            //let ratio = viewBounds.width > viewBounds.height ? ratioDimensions : CGSize(width: ratioDimensions.height, height: ratioDimensions.width)
             internalBounds = AVMakeRect(aspectRatio: ratioDimensions, insideRect: viewBounds)
         } else {
             internalBounds = viewBounds
@@ -204,15 +202,6 @@ public class NextLevelPreviewMetalRenderer: NSObject {
                 scaleX = Float(internalBounds.width / CGFloat(textureWidth))
                 scaleY = Float(internalBounds.height / CGFloat(textureHeight))
             }
-//            switch textureRotation {
-//            case .rotate0Degrees, .rotate180Degrees:
-//                scaleX = Float(internalBounds.width / CGFloat(textureWidth))
-//                scaleY = Float(internalBounds.height / CGFloat(textureHeight))
-//
-//            case .rotate90Degrees, .rotate270Degrees:
-//                scaleX = Float(internalBounds.width / CGFloat(textureHeight))
-//                scaleY = Float(internalBounds.height / CGFloat(textureWidth))
-//            }
         }
         // Resize aspect ratio.
         resizeAspect = min(scaleX, scaleY)
