@@ -894,10 +894,12 @@ extension NextLevel {
                 let _ = self.addVideoOutput(forPreview: true)
             }
 
-            let _ = self.addPhotoOutput()
+            if self._photoOutput == nil {
+                let _ = self.addPhotoOutput()
+            }
 
             #if USE_TRUE_DEPTH
-            if self.depthDataCaptureEnabled {
+            if self.depthDataCaptureEnabled && self.depthDataOutput == nil {
                 let _ = self.addDepthDataOutput()
                 
                 // portrait effects matte needs depth to work
