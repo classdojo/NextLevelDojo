@@ -120,6 +120,7 @@ public enum NextLevelCaptureMode: Int, CustomStringConvertible {
     case movie
     case arKit
     case photoVideo
+    case photoVideoAudio
     
     public var description: String {
         get {
@@ -138,6 +139,8 @@ public enum NextLevelCaptureMode: Int, CustomStringConvertible {
                 return "ARKit"
             case .photoVideo:
                 return "Photo and video"
+            case .photoVideoAudio:
+                return "Photo and video and audio"
             }
         }
     }
@@ -567,13 +570,17 @@ extension NextLevel {
         switch self.captureMode {
         case .audio:
             return NextLevel.authorizationStatus(forMediaType: AVMediaType.audio)
+        case .photoVideo:
+            fallthrough
         case .videoWithoutAudio:
             return NextLevel.authorizationStatus(forMediaType: AVMediaType.video)
         case .arKit:
             fallthrough
         case .movie:
             fallthrough
-        case .video, .photoVideo:
+        case .photoVideoAudio:
+            fallthrough
+        case .video:
             let audioStatus = NextLevel.authorizationStatus(forMediaType: AVMediaType.audio)
             let videoStatus = NextLevel.authorizationStatus(forMediaType: AVMediaType.video)
             return (audioStatus == .authorized && videoStatus == .authorized) ? .authorized : .notAuthorized
@@ -758,13 +765,13 @@ extension NextLevel {
         var shouldConfigureVideo = false
         var shouldConfigureAudio = false
         switch self.captureMode {
-        case .photo:
+        case .photo, .photoVideo:
             shouldConfigureVideo = true
             break
         case .audio:
             shouldConfigureAudio = true
             break
-        case .video, .photoVideo:
+        case .video, .photoVideoAudio:
             shouldConfigureVideo = true
             shouldConfigureAudio = true
             break
@@ -869,7 +876,7 @@ extension NextLevel {
             }
             #endif
             break
-        case .photo, .photoVideo:
+        case .photo, .photoVideo, .photoVideoAudio:
 
             if session.sessionPreset != self.photoConfiguration.preset {
                 if session.canSetSessionPreset(self.photoConfiguration.preset) {
@@ -877,6 +884,10 @@ extension NextLevel {
                 } else {
                     print("NextLevel, could not set preset on session")
                 }
+            }
+
+            if self.captureMode == .photoVideoAudio {
+                let _ = self.addAudioOuput()
             }
 
             if (self.isVideoCustomPreviewEnabled || self.captureMode == .photoVideo) && self._videoOutput == nil {
@@ -1278,6 +1289,12 @@ extension NextLevel {
             }
             break
         case .photoVideo:
+            if let audioOutput = self._audioOutput, session.outputs.contains(audioOutput) {
+                session.removeOutput(audioOutput)
+                self._audioOutput = nil
+            }
+            break
+        case .photoVideoAudio:
             break
         }
         
