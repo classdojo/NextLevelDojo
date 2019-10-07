@@ -463,7 +463,7 @@ public class NextLevelPhotoConfiguration : NextLevelConfiguration {
 
 @available(iOS 11.0, *)
 /// NextLevelARConfiguration, augmented reality configuration object
-public class NextLevelARConfiguration : NextLevelConfiguration {
+public class NextLevelARConfiguration: NextLevelConfiguration {
 
     #if USE_ARKIT
     /// ARKit configuration
@@ -477,4 +477,3 @@ public class NextLevelARConfiguration : NextLevelConfiguration {
     #endif
 
 }
-

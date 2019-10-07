@@ -29,6 +29,7 @@ import AVFoundation
 import CoreImage
 import CoreVideo
 import Metal
+import MetalKit
 #if USE_ARKIT
 import ARKit
 #endif
@@ -118,6 +119,8 @@ public enum NextLevelCaptureMode: Int, CustomStringConvertible {
     case videoWithoutAudio
     case movie
     case arKit
+    case photoVideo
+    case photoVideoAudio
     
     public var description: String {
         get {
@@ -134,6 +137,10 @@ public enum NextLevelCaptureMode: Int, CustomStringConvertible {
                 return "Movie"
             case .arKit:
                 return "ARKit"
+            case .photoVideo:
+                return "Photo and video"
+            case .photoVideoAudio:
+                return "Photo and video and audio"
             }
         }
     }
@@ -237,7 +244,23 @@ public class NextLevel: NSObject {
     
     /// Live camera preview, add as a sublayer to the UIView's primary layer.
     public var previewLayer: AVCaptureVideoPreviewLayer
-    
+
+    /// Live camera preview, add as a subview to your application if you are
+    /// doing custom rendering that should appear in the preview. For performance
+    /// reasons, do not use this view if you are not doing custom rendering.
+    public var customPreviewRenderer: NextLevelPreviewMetalRenderer? {
+        willSet {
+            self._videoCustomRenderPreviewEnabled = newValue != nil
+        }
+    }
+
+    /// Live camera preview, add as a subview to your application if you are
+    /// doing custom rendering that should appear in the preview. For performance
+    /// reasons, do not use this view if you are not doing custom rendering.
+    public var customPreviewView: MTKView? {
+        return customPreviewRenderer?.metalBufferView
+    }
+
     // capture configuration
     
     /// Configuration for video
@@ -394,6 +417,7 @@ public class NextLevel: NSObject {
     internal var _lastVideoFrameTimeInterval: TimeInterval = 0
     
     internal var _videoCustomContextRenderingEnabled: Bool = false
+    internal var _videoCustomRenderPreviewEnabled: Bool = false
     internal var _sessionVideoCustomContextImageBuffer: CVPixelBuffer?
     
     // AVFoundation
@@ -546,11 +570,15 @@ extension NextLevel {
         switch self.captureMode {
         case .audio:
             return NextLevel.authorizationStatus(forMediaType: AVMediaType.audio)
+        case .photoVideo:
+            fallthrough
         case .videoWithoutAudio:
             return NextLevel.authorizationStatus(forMediaType: AVMediaType.video)
         case .arKit:
             fallthrough
         case .movie:
+            fallthrough
+        case .photoVideoAudio:
             fallthrough
         case .video:
             let audioStatus = NextLevel.authorizationStatus(forMediaType: AVMediaType.audio)
@@ -634,8 +662,11 @@ extension NextLevel {
                 session.automaticallyConfiguresApplicationAudioSession = self.automaticallyConfiguresApplicationAudioSession
                 
                 self.beginConfiguration()
-                self.previewLayer.session = session
-                
+
+                if !self.isVideoCustomPreviewEnabled {
+                    self.previewLayer.session = session
+                }
+
                 self.configureSession()
                 self.configureSessionDevices()
                 self.configureMetadataObjects()
@@ -734,13 +765,13 @@ extension NextLevel {
         var shouldConfigureVideo = false
         var shouldConfigureAudio = false
         switch self.captureMode {
-        case .photo:
+        case .photo, .photoVideo:
             shouldConfigureVideo = true
             break
         case .audio:
             shouldConfigureAudio = true
             break
-        case .video:
+        case .video, .photoVideoAudio:
             shouldConfigureVideo = true
             shouldConfigureAudio = true
             break
@@ -836,14 +867,17 @@ extension NextLevel {
             if self.captureMode == .video {
                 let _ = self.addAudioOuput()
             }
-            let _ = self.addVideoOutput()
+            if !self.isVideoCustomPreviewEnabled || self._videoOutput == nil {
+                let _ = self.addVideoOutput()
+            }
             #if USE_TRUE_DEPTH
             if self.depthDataCaptureEnabled {
                 let _ = self.addDepthDataOutput()
             }
             #endif
             break
-        case .photo:
+        case .photo, .photoVideo, .photoVideoAudio:
+
             if session.sessionPreset != self.photoConfiguration.preset {
                 if session.canSetSessionPreset(self.photoConfiguration.preset) {
                     session.sessionPreset = self.photoConfiguration.preset
@@ -851,10 +885,21 @@ extension NextLevel {
                     print("NextLevel, could not set preset on session")
                 }
             }
-            
-            let _ = self.addPhotoOutput()
+
+            if self.captureMode == .photoVideoAudio {
+                let _ = self.addAudioOuput()
+            }
+
+            if (self.isVideoCustomPreviewEnabled || self.captureMode == .photoVideo) && self._videoOutput == nil {
+                let _ = self.addVideoOutput(forPreview: true)
+            }
+
+            if self._photoOutput == nil {
+                let _ = self.addPhotoOutput()
+            }
+
             #if USE_TRUE_DEPTH
-            if self.depthDataCaptureEnabled {
+            if self.depthDataCaptureEnabled && self.depthDataOutput == nil {
                 let _ = self.addDepthDataOutput()
                 
                 // portrait effects matte needs depth to work
@@ -863,6 +908,7 @@ extension NextLevel {
                 }
             }
             #endif
+
             break
         case .audio:
             let _ = self.addAudioOuput()
@@ -1001,14 +1047,18 @@ extension NextLevel {
     
     // outputs, only call within configuration lock
     
-    private func addVideoOutput() -> Bool {
+    private func addVideoOutput(forPreview: Bool = false) -> Bool {
         
         if self._videoOutput == nil {
             self._videoOutput = AVCaptureVideoDataOutput()
-            self._videoOutput?.alwaysDiscardsLateVideoFrames = false
+            self._videoOutput?.alwaysDiscardsLateVideoFrames = forPreview
+
+            if forPreview, let previewView = self.customPreviewRenderer {
+                previewView.flushTextureCache()
+            }
             
             var videoSettings = [String(kCVPixelBufferPixelFormatTypeKey):Int(kCVPixelFormatType_32BGRA)]
-            if let formatTypes = self._videoOutput?.availableVideoPixelFormatTypes {
+            if !self.isVideoCustomPreviewEnabled, let formatTypes = self._videoOutput?.availableVideoPixelFormatTypes {
                 var supportsFullRange = false
                 var supportsVideoRange = false
                 for format in formatTypes {
@@ -1029,6 +1079,9 @@ extension NextLevel {
         }
         
         if let session = self._captureSession, let videoOutput = self._videoOutput {
+            if forPreview {
+                self.videoStabilizationMode = .off
+            }
             if session.canAddOutput(videoOutput) {
                 session.addOutput(videoOutput)
                 videoOutput.setSampleBufferDelegate(self, queue: self._sessionQueue)
@@ -1194,7 +1247,7 @@ extension NextLevel {
             }
             break
         case .photo:
-            if let videoOutput = self._videoOutput, session.outputs.contains(videoOutput) {
+            if !self.isVideoCustomPreviewEnabled, let videoOutput = self._videoOutput, session.outputs.contains(videoOutput) {
                 session.removeOutput(videoOutput)
                 self._videoOutput = nil
             }
@@ -1237,6 +1290,14 @@ extension NextLevel {
                 self._photoOutput = nil
             }
             break
+        case .photoVideo:
+            if let audioOutput = self._audioOutput, session.outputs.contains(audioOutput) {
+                session.removeOutput(audioOutput)
+                self._audioOutput = nil
+            }
+            break
+        case .photoVideoAudio:
+            break
         }
         
     }
@@ -1251,15 +1312,19 @@ extension NextLevel {
     
     /// Freezes the live camera preview layer.
     public func freezePreview() {
-        if let previewConnection = self.previewLayer.connection {
+        if !self.isVideoCustomPreviewEnabled, let previewConnection = self.previewLayer.connection {
             previewConnection.isEnabled = false
+        } else if let previewView = self.customPreviewRenderer {
+            previewView.isEnabled = false
         }
     }
     
     /// Un-freezes the live camera preview layer.
     public func unfreezePreview() {
-        if let previewConnection = self.previewLayer.connection {
+        if !self.isVideoCustomPreviewEnabled, let previewConnection = self.previewLayer.connection {
             previewConnection.isEnabled = true
+        } else if let previewView = self.customPreviewRenderer {
+            previewView.isEnabled = true
         }
     }
 }
@@ -1297,10 +1362,16 @@ extension NextLevel {
         var didChangeOrientation = false
         let currentOrientation = AVCaptureVideoOrientation.avorientationFromUIDeviceOrientation(UIDevice.current.orientation)
         
-        if let previewConnection = self.previewLayer.connection {
+        if !self.isVideoCustomPreviewEnabled, let previewConnection = self.previewLayer.connection {
             if previewConnection.isVideoOrientationSupported && previewConnection.videoOrientation != currentOrientation {
                 previewConnection.videoOrientation = currentOrientation
                 didChangeOrientation = true
+            }
+        } else if let previewRenderer = self.customPreviewRenderer, let videoOutput = self._videoOutput, let videoConnection = videoOutput.connection(with: AVMediaType.video) {
+            if videoConnection.isVideoOrientationSupported && videoConnection.videoOrientation != currentOrientation {
+                if videoConnection.isVideoMirroringSupported && previewRenderer.shouldAutomaticallyAdjustMirroring {
+                    videoConnection.isVideoMirrored = devicePosition == .front
+                }
             }
         }
         
@@ -1343,13 +1414,19 @@ extension NextLevel {
     /// Changes the current capture device's mirroring mode.
     public var mirroringMode: NextLevelMirroringMode {
         get {
-            if let pc = self.previewLayer.connection {
+            if !self.isVideoCustomPreviewEnabled, let pc = self.previewLayer.connection {
                 if pc.isVideoMirroringSupported {
                     if !pc.automaticallyAdjustsVideoMirroring {
                         return pc.isVideoMirrored ? .on : .off
                     } else {
                         return .auto
                     }
+                }
+            } else if let previewView = self.customPreviewRenderer {
+                if previewView.shouldAutomaticallyAdjustMirroring {
+                    return .auto
+                } else {
+                    return previewView.mirroring ? .on : .off
                 }
             }
             return .off
@@ -1368,10 +1445,15 @@ extension NextLevel {
                         vc.isVideoMirrored = false
                     }
                 }
-                if let pc = self.previewLayer.connection {
+                if !self.isVideoCustomPreviewEnabled, let pc = self.previewLayer.connection {
                     if pc.isVideoMirroringSupported {
                         pc.automaticallyAdjustsVideoMirroring = false
                         pc.isVideoMirrored = false
+                    }
+                } else if let previewView = self.customPreviewRenderer, let vc = videoOutput.connection(with: AVMediaType.video) {
+                    if vc.isVideoMirroringSupported {
+                        previewView.shouldAutomaticallyAdjustMirroring = false
+                        previewView.mirroring = false
                     }
                 }
                 break
@@ -1381,10 +1463,15 @@ extension NextLevel {
                         vc.isVideoMirrored = true
                     }
                 }
-                if let pc = self.previewLayer.connection {
-                    if pc.isVideoMirroringSupported {
-                        pc.automaticallyAdjustsVideoMirroring = false
-                        pc.isVideoMirrored = true
+                if !self.isVideoCustomPreviewEnabled, let pc = self.previewLayer.connection {
+                        if pc.isVideoMirroringSupported {
+                            pc.automaticallyAdjustsVideoMirroring = false
+                            pc.isVideoMirrored = true
+                        }
+                } else if let previewView = self.customPreviewRenderer, let vc = videoOutput.connection(with: AVMediaType.video) {
+                   if vc.isVideoMirroringSupported {
+                        previewView.shouldAutomaticallyAdjustMirroring = false
+                        previewView.mirroring = true
                     }
                 }
                 break
@@ -1394,9 +1481,13 @@ extension NextLevel {
                         vc.isVideoMirrored = (device.position == .front)
                     }
                 }
-                if let pc = self.previewLayer.connection {
+                if !self.isVideoCustomPreviewEnabled, let pc = self.previewLayer.connection {
                     if pc.isVideoMirroringSupported {
                         pc.automaticallyAdjustsVideoMirroring = true
+                    }
+                } else if let previewView = self.customPreviewRenderer, let vc = videoOutput.connection(with: AVMediaType.video) {
+                    if vc.isVideoMirroringSupported {
+                        previewView.shouldAutomaticallyAdjustMirroring = true
                     }
                 }
                 break
@@ -2346,6 +2437,26 @@ extension NextLevel {
             }
         }
     }
+
+    /// Displays custom rendering results in the preview view. To use this, you must
+    /// set `isVideoCustomContextRenderingEnabled` to `true`, and
+    /// use the `customPreviewView` instead of `previewLayer`
+    public var isVideoCustomPreviewEnabled: Bool {
+        get {
+            return self._videoCustomRenderPreviewEnabled
+        }
+        set {
+            self.executeClosureSyncOnSessionQueueIfNecessary {
+                self._videoCustomRenderPreviewEnabled = newValue
+                self._sessionVideoCustomContextImageBuffer = nil
+                if newValue == true {
+                    self.customPreviewRenderer = NextLevelPreviewMetalRenderer()
+                } else {
+                    self.customPreviewRenderer = nil
+                }
+            }
+        }
+    }
     
     /// Settings this property passes a modified buffer into the session for writing.
     /// The property is only observed when 'isVideoCustomContextRenderingEnabled' is enabled. Setting it to nil avoids modification for a frame.
@@ -2481,6 +2592,34 @@ extension NextLevel {
                 self.videoDelegate?.nextLevel(self, didSetupVideoInSession: session)
             }
         }
+
+        if self.isVideoCustomPreviewEnabled, let previewView = self.customPreviewRenderer, previewView.shouldAutomaticallyAdjustMirroring {
+            previewView.mirroring = self.devicePosition == .front ? true : false
+        }
+
+        var imageBuffer: CVImageBuffer?
+        if self.isVideoCustomPreviewEnabled, let previewView = self.customPreviewRenderer {
+            imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer)
+            if let imageBuffer = imageBuffer {
+                if CVPixelBufferLockBaseAddress(imageBuffer, CVPixelBufferLockFlags(rawValue: 0)) == kCVReturnSuccess {
+                    // only called from captureQueue
+                    self.videoDelegate?.nextLevel(self, renderToCustomContextWithImageBuffer: imageBuffer, onQueue: self._sessionQueue)
+
+                    if let customImageBuffer = self._sessionVideoCustomContextImageBuffer {
+                        self._sessionQueue.async {
+                            previewView.pixelBuffer = customImageBuffer
+                        }
+                    } else {
+                        self._sessionQueue.async {
+                            previewView.pixelBuffer = imageBuffer
+                        }
+                    }
+                    CVPixelBufferUnlockBaseAddress(imageBuffer, CVPixelBufferLockFlags(rawValue: 0))
+                } else {
+                    self._sessionVideoCustomContextImageBuffer = nil
+                }
+            }
+        }
         
         if self._recording && (session.isAudioSetup || self.captureMode == .videoWithoutAudio) && session.currentClipHasStarted {
             self.beginRecordingNewClipIfNecessary()
@@ -2490,15 +2629,17 @@ extension NextLevel {
             if sleepDuration > 0 {
                 Thread.sleep(forTimeInterval: sleepDuration)
             }
-            
+
             // check with the client to setup/maintain external render contexts
-            let imageBuffer = self.isVideoCustomContextRenderingEnabled == true ? CMSampleBufferGetImageBuffer(sampleBuffer) : nil
-            if let imageBuffer = imageBuffer {
-                if CVPixelBufferLockBaseAddress(imageBuffer, CVPixelBufferLockFlags(rawValue: 0)) == kCVReturnSuccess {
-                    // only called from captureQueue
-                    self.videoDelegate?.nextLevel(self, renderToCustomContextWithImageBuffer: imageBuffer, onQueue: self._sessionQueue)
-                } else {
-                    self._sessionVideoCustomContextImageBuffer = nil
+            if !self.isVideoCustomPreviewEnabled {
+                imageBuffer = self.isVideoCustomContextRenderingEnabled == true ? CMSampleBufferGetImageBuffer(sampleBuffer) : nil
+                if let imageBuffer = imageBuffer {
+                    if CVPixelBufferLockBaseAddress(imageBuffer, CVPixelBufferLockFlags(rawValue: 0)) == kCVReturnSuccess {
+                        // only called from captureQueue
+                        self.videoDelegate?.nextLevel(self, renderToCustomContextWithImageBuffer: imageBuffer, onQueue: self._sessionQueue)
+                    } else {
+                        self._sessionVideoCustomContextImageBuffer = nil
+                    }
                 }
             }
             
@@ -2509,7 +2650,7 @@ extension NextLevel {
             // when clients modify a frame using their rendering context, the resulting CVPixelBuffer is then passed in here with the original sampleBuffer for recording
             session.appendVideo(withSampleBuffer: sampleBuffer, customImageBuffer: self._sessionVideoCustomContextImageBuffer, minFrameDuration: device.activeVideoMinFrameDuration, completionHandler: { (success: Bool) -> Void in
                 // cleanup client rendering context
-                if self.isVideoCustomContextRenderingEnabled {
+                if self.isVideoCustomContextRenderingEnabled || self.isVideoCustomPreviewEnabled {
                     if let imageBuffer = imageBuffer {
                         CVPixelBufferUnlockBaseAddress(imageBuffer, CVPixelBufferLockFlags(rawValue: 0))
                     }
@@ -2543,7 +2684,7 @@ extension NextLevel {
             
         }
     }
-    
+
     // Beta: handleVideoOutput(pixelBuffer:timestamp:session:) needs to be tested
     internal func handleVideoOutput(pixelBuffer: CVPixelBuffer, timestamp: TimeInterval, session: NextLevelSession) {
         if session.isVideoSetup == false {
@@ -2676,7 +2817,7 @@ extension NextLevel {
 extension NextLevel: AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
     
     public func captureOutput(_ captureOutput: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        if self.captureMode == .videoWithoutAudio && captureOutput == self._videoOutput {
+        if (self.captureMode == .videoWithoutAudio || self.isVideoCustomPreviewEnabled) && captureOutput == self._videoOutput {
             self.videoDelegate?.nextLevel(self, willProcessRawVideoSampleBuffer: sampleBuffer, onQueue: self._sessionQueue)
             self._lastVideoFrame = sampleBuffer
             if let session = self._recordingSession {
@@ -2873,9 +3014,14 @@ extension NextLevel {
 extension NextLevel: AVCaptureMetadataOutputObjectsDelegate {
 
     public func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
+
+        guard !self.isVideoCustomPreviewEnabled else {
+            return
+        }
+
         // convert metadata object coordinates to preview layer coordinates
         let convertedMetadataObjects = metadataObjects.compactMap { metadataObject in
-            return self.previewLayer.transformedMetadataObject(for: metadataObject)
+            return previewLayer.transformedMetadataObject(for: metadataObject)
         }
 
         // main queue is explicitly specified during configuration
@@ -3102,6 +3248,9 @@ extension NextLevel {
             
             if object.focusMode != .locked {
                 DispatchQueue.main.async {
+                    if let previewView = strongSelf.customPreviewRenderer, previewView.shouldAutomaticallyAdjustMirroring {
+                        previewView.mirroring = strongSelf.devicePosition == .front ? true : false
+                    }
                     strongSelf.deviceDelegate?.nextLevel(strongSelf, didChangeLensPosition: object.lensPosition)
                 }
             }

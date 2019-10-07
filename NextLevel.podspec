@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name = 'NextLevel'
-  s.version = '0.16.0'
+  s.version = '0.17.0'
   s.license = 'MIT'
   s.summary = 'Rad Media Capture in Swift'
   s.homepage = 'https://github.com/nextlevel/NextLevel'
@@ -8,7 +8,7 @@ Pod::Spec.new do |s|
   s.source = { :git => 'https://github.com/nextlevel/NextLevel.git', :tag => s.version }
   s.documentation_url = 'https://nextlevel.github.io/NextLevel/'
   s.ios.deployment_target = '10.0'
-  s.source_files = 'Sources/*.swift'
+  s.source_files = 'Sources/*.{swift,metal}'
   s.requires_arc = true
   s.swift_version = '5.0'
 end
