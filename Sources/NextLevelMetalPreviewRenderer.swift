@@ -494,7 +494,6 @@ extension NextLevelPreviewMetalRenderer: MTKViewDelegate {
 
         if texture.width != textureWidth ||
             texture.height != textureHeight ||
-            //view.bounds != internalBounds ||
             mirroring != textureMirroring ||
             rotation != textureRotation ||
             resetTransform {
