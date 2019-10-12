@@ -418,6 +418,7 @@ public class NextLevel: NSObject {
     
     internal var _videoCustomContextRenderingEnabled: Bool = false
     internal var _videoCustomRenderPreviewEnabled: Bool = false
+    internal var _sessionVideoCustomContextPreviewImageBuffer: CVPixelBuffer?
     internal var _sessionVideoCustomContextImageBuffer: CVPixelBuffer?
     
     // AVFoundation
@@ -2343,7 +2344,7 @@ extension NextLevel {
                 if let buffer = buffer {
                     if CVPixelBufferLockBaseAddress(buffer, CVPixelBufferLockFlags(rawValue: 0)) == kCVReturnSuccess {
                         // only called from captureQueue, populates self._sessionVideoCustomContextImageBuffer
-                        self.videoDelegate?.nextLevel(self, renderToCustomContextWithImageBuffer: buffer, onQueue: self._sessionQueue)
+                        self.videoDelegate?.nextLevel(self, renderToCustomContextPreviewWithImageBuffer: buffer, onQueue: self._sessionQueue)
                         CVPixelBufferUnlockBaseAddress(buffer, CVPixelBufferLockFlags(rawValue: 0))
                     }
                 }
@@ -2457,6 +2458,20 @@ extension NextLevel {
             }
         }
     }
+    
+    /// Settings this property passes a modified _preview_ buffer into the session for writing.
+    /// The property is only observed when 'isVideoCustomContextRenderingEnabled' is enabled. Setting it to nil avoids modification for a frame.
+    public var videoCustomContextPreviewImageBuffer: CVPixelBuffer? {
+        get {
+            return self._sessionVideoCustomContextPreviewImageBuffer
+        }
+        set {
+            self.executeClosureSyncOnSessionQueueIfNecessary {
+                self._sessionVideoCustomContextPreviewImageBuffer = newValue
+            }
+        }
+    }
+    
     
     /// Settings this property passes a modified buffer into the session for writing.
     /// The property is only observed when 'isVideoCustomContextRenderingEnabled' is enabled. Setting it to nil avoids modification for a frame.
@@ -2582,11 +2597,27 @@ extension NextLevel {
     
     internal func handleVideoOutput(sampleBuffer: CMSampleBuffer, session: NextLevelSession) {
         if session.isVideoSetup == false {
+            
+            DispatchQueue.main.sync {
+                self.videoDelegate?.nextLevel(self, willSetupVideoInSession: session, sampleBuffer: sampleBuffer)
+            }
+            
             if let settings = self.videoConfiguration.avcaptureSettingsDictionary(sampleBuffer: sampleBuffer),
-                let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) {
-                if !session.setupVideo(withSettings: settings, configuration: self.videoConfiguration, formatDescription: formatDescription) {
+                var formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) {
+                
+                var formatDesc: CMFormatDescription? = formatDescription
+                let formatDimensions = CMVideoFormatDescriptionGetDimensions(formatDescription)
+                // Let the video configuration override the sample buffer size
+                if let dimensions = self.videoConfiguration.dimensions {
+                    if formatDimensions.width != Int32(dimensions.width) || formatDimensions.height != Int32(dimensions.height) {
+                        formatDesc = nil
+                    }
+                }
+
+                if !session.setupVideo(withSettings: settings, configuration: self.videoConfiguration, formatDescription: formatDesc) {
                     print("NextLevel, could not setup video session")
                 }
+                
             }
             DispatchQueue.main.async {
                 self.videoDelegate?.nextLevel(self, didSetupVideoInSession: session)
@@ -2598,14 +2629,16 @@ extension NextLevel {
         }
 
         var imageBuffer: CVImageBuffer?
+        var customPreviewRendered = false
         if self.isVideoCustomPreviewEnabled, let previewView = self.customPreviewRenderer {
             imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer)
             if let imageBuffer = imageBuffer {
                 if CVPixelBufferLockBaseAddress(imageBuffer, CVPixelBufferLockFlags(rawValue: 0)) == kCVReturnSuccess {
                     // only called from captureQueue
-                    self.videoDelegate?.nextLevel(self, renderToCustomContextWithImageBuffer: imageBuffer, onQueue: self._sessionQueue)
+                    self.videoDelegate?.nextLevel(self, renderToCustomContextPreviewWithImageBuffer: imageBuffer, onQueue: self._sessionQueue)
 
-                    if let customImageBuffer = self._sessionVideoCustomContextImageBuffer {
+                    if let customImageBuffer = self._sessionVideoCustomContextPreviewImageBuffer {
+                        customPreviewRendered = true
                         self._sessionQueue.async {
                             previewView.pixelBuffer = customImageBuffer
                         }
@@ -2616,7 +2649,7 @@ extension NextLevel {
                     }
                     CVPixelBufferUnlockBaseAddress(imageBuffer, CVPixelBufferLockFlags(rawValue: 0))
                 } else {
-                    self._sessionVideoCustomContextImageBuffer = nil
+                    self._sessionVideoCustomContextPreviewImageBuffer = nil
                 }
             }
         }
@@ -2631,15 +2664,13 @@ extension NextLevel {
             }
 
             // check with the client to setup/maintain external render contexts
-            if !self.isVideoCustomPreviewEnabled {
-                imageBuffer = self.isVideoCustomContextRenderingEnabled == true ? CMSampleBufferGetImageBuffer(sampleBuffer) : nil
-                if let imageBuffer = imageBuffer {
-                    if CVPixelBufferLockBaseAddress(imageBuffer, CVPixelBufferLockFlags(rawValue: 0)) == kCVReturnSuccess {
-                        // only called from captureQueue
-                        self.videoDelegate?.nextLevel(self, renderToCustomContextWithImageBuffer: imageBuffer, onQueue: self._sessionQueue)
-                    } else {
-                        self._sessionVideoCustomContextImageBuffer = nil
-                    }
+            imageBuffer = self.isVideoCustomContextRenderingEnabled == true ? (customPreviewRendered ? self._sessionVideoCustomContextPreviewImageBuffer : CMSampleBufferGetImageBuffer(sampleBuffer)) : nil
+            if let imageBuffer = imageBuffer {
+                if CVPixelBufferLockBaseAddress(imageBuffer, CVPixelBufferLockFlags(rawValue: 0)) == kCVReturnSuccess {
+                    // only called from captureQueue
+                    self.videoDelegate?.nextLevel(self, renderToCustomContextWithImageBuffer: imageBuffer, onQueue: self._sessionQueue)
+                } else {
+                    self._sessionVideoCustomContextImageBuffer = nil
                 }
             }
             

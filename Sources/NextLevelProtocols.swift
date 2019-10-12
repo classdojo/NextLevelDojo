@@ -133,6 +133,7 @@ public protocol NextLevelVideoDelegate: AnyObject {
     
     // video processing
     func nextLevel(_ nextLevel: NextLevel, willProcessRawVideoSampleBuffer sampleBuffer: CMSampleBuffer, onQueue queue: DispatchQueue)
+    func nextLevel(_ nextLevel: NextLevel, renderToCustomContextPreviewWithImageBuffer imageBuffer: CVPixelBuffer, onQueue queue: DispatchQueue)
     func nextLevel(_ nextLevel: NextLevel, renderToCustomContextWithImageBuffer imageBuffer: CVPixelBuffer, onQueue queue: DispatchQueue)
     
     // ARKit video processing
@@ -140,6 +141,7 @@ public protocol NextLevelVideoDelegate: AnyObject {
     func nextLevel(_ nextLevel: NextLevel, willProcessFrame frame: AnyObject, timestamp: TimeInterval, onQueue queue: DispatchQueue)
     
     // video recording session
+    func nextLevel(_ nextLevel: NextLevel, willSetupVideoInSession session: NextLevelSession, sampleBuffer: CMSampleBuffer)
     func nextLevel(_ nextLevel: NextLevel, didSetupVideoInSession session: NextLevelSession)
     func nextLevel(_ nextLevel: NextLevel, didSetupAudioInSession session: NextLevelSession)
     
