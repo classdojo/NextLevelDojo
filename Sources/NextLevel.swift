@@ -2598,23 +2598,11 @@ extension NextLevel {
     internal func handleVideoOutput(sampleBuffer: CMSampleBuffer, session: NextLevelSession) {
         if session.isVideoSetup == false {
             
-            DispatchQueue.main.sync {
-                self.videoDelegate?.nextLevel(self, willSetupVideoInSession: session, sampleBuffer: sampleBuffer)
-            }
+            self.videoDelegate?.nextLevel(self, willSetupVideoInSession: session, sampleBuffer: sampleBuffer)
             
             if let settings = self.videoConfiguration.avcaptureSettingsDictionary(sampleBuffer: sampleBuffer),
                 var formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) {
-                
-                var formatDesc: CMFormatDescription? = formatDescription
-                let formatDimensions = CMVideoFormatDescriptionGetDimensions(formatDescription)
-                // Let the video configuration override the sample buffer size
-                if let dimensions = self.videoConfiguration.dimensions {
-                    if formatDimensions.width != Int32(dimensions.width) || formatDimensions.height != Int32(dimensions.height) {
-                        formatDesc = nil
-                    }
-                }
-
-                if !session.setupVideo(withSettings: settings, configuration: self.videoConfiguration, formatDescription: formatDesc) {
+                if !session.setupVideo(withSettings: settings, configuration: self.videoConfiguration, formatDescription: formatDescription) {
                     print("NextLevel, could not setup video session")
                 }
                 

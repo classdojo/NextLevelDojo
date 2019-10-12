@@ -66,6 +66,8 @@ public class NextLevelPreviewMetalRenderer: NSObject {
             resetTransform  = true
         }
     }
+    
+    public var fullscreenBlur: Bool = false
 
     public var mirrorEdgesBlur: Float = 32.0
     
@@ -497,7 +499,9 @@ extension NextLevelPreviewMetalRenderer: MTKViewDelegate {
             mirroring != textureMirroring ||
             rotation != textureRotation ||
             resetTransform {
-            setupTransform(width: texture.width, height: texture.height, mirroring: mirroring, rotation: rotation)
+            DispatchQueue.main.sync {[weak self] in
+                self?.setupTransform(width: texture.width, height: texture.height, mirroring: mirroring, rotation: rotation)
+            }
             resetTransform = false
         }
 
@@ -539,7 +543,9 @@ extension NextLevelPreviewMetalRenderer: MTKViewDelegate {
         }
         commandEncoder.setFragmentSamplerState(sampler, index: 0)
 
+        var fullBlur: Float = fullscreenBlur ? 1.0 : 0.0
         commandEncoder.setFragmentBytes(&scaleOffset, length: MemoryLayout.size(ofValue: scaleOffset), index: 0)
+        commandEncoder.setFragmentBytes(&fullBlur, length: MemoryLayout.size(ofValue: fullBlur), index: 1)
         commandEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         commandEncoder.endEncoding()
 

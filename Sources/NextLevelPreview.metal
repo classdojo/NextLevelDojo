@@ -59,7 +59,8 @@ fragment half4 fragmentPassThroughMirrorEdgesBlur(VertexIO         inputFragment
                                    texture2d<half> inputTexture   [[ texture(0) ]],
                                    texture2d<half> blurredTexture [[ texture(1) ]],
                                    sampler         samplr        [[ sampler(0) ]],
-                                   device const float2 & scaleOffset [[ buffer(0) ]])
+                                   device const float2 & scaleOffset [[ buffer(0) ]],
+                                   device const float & fullBlur [[ buffer(1) ]])
 
 {
 
@@ -72,6 +73,9 @@ fragment half4 fragmentPassThroughMirrorEdgesBlur(VertexIO         inputFragment
     half4 blurColor2 = blurredTexture.sample(samplr, blurTextureCoord2);
 
     float y = (inputFragment.textureCoord.x * step(0.0001, abs(scaleOffset.x)) - abs(scaleOffset.x)) + (inputFragment.textureCoord.y * step(0.0001, abs(scaleOffset.y)) - abs(scaleOffset.y));
+    
+    // If fullBlur is 1.0, blur everything. 0.0 is normal blur.
+    y = (y * (1.0 - fullBlur)) - (0.0001 * fullBlur);
 
     float n1 = clamp(step(0.0, y), 0.0, 1.0);
     float n2 = clamp(step(y, 1.0), 0.0, 1.0);
