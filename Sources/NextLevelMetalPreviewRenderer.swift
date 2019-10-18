@@ -73,7 +73,7 @@ public class NextLevelPreviewMetalRenderer: NSObject {
     
     var previewContentMode: PreviewContentMode = .aspectFill
 
-    var shouldAutomaticallyAdjustMirroring: Bool = true
+    var shouldAutomaticallyAdjustMirroring: Bool = false
 
     var mirroring = false {
         didSet {
