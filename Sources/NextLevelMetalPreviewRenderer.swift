@@ -39,7 +39,7 @@ public class NextLevelPreviewMetalRenderer: NSObject {
         case rotate270Degrees
     }
 
-    enum PreviewContentMode {
+    public enum PreviewContentMode {
         case aspectFit
         case aspectFill
     }
@@ -71,7 +71,7 @@ public class NextLevelPreviewMetalRenderer: NSObject {
 
     public var mirrorEdgesBlur: Float = 32.0
     
-    var previewContentMode: PreviewContentMode = .aspectFill
+    public var previewContentMode: PreviewContentMode = .aspectFill
 
     var shouldAutomaticallyAdjustMirroring: Bool = false
 
@@ -213,11 +213,11 @@ public class NextLevelPreviewMetalRenderer: NSObject {
             scaleX = Float(internalBounds.width / metalBufferView.bounds.width)
         } else {
             if internalBounds.height > internalBounds.width  {
-                scaleX = 1.0
+                scaleX = scaleY / scaleX
                 scaleY = Float(internalBounds.height / max(metalBufferView.bounds.width, metalBufferView.bounds.height))
             } else {
                 scaleX = Float(internalBounds.width / max(metalBufferView.bounds.width, metalBufferView.bounds.height))
-                scaleY = 1.0
+                scaleY = scaleX / scaleY
             }
         }
 
