@@ -2330,14 +2330,10 @@ extension NextLevel {
                 if let buffer = buffer {
                     if CVPixelBufferLockBaseAddress(buffer, CVPixelBufferLockFlags(rawValue: 0)) == kCVReturnSuccess {
                         // only called from captureQueue, populates self._sessionVideoCustomContextImageBuffer
-
-                        if self.isVideoCustomPreviewEnabled, let previewView = self.customPreviewRenderer {
+                        if self.isVideoCustomPreviewEnabled {
                             self.videoDelegate?.nextLevel(self, renderToCustomContextPreviewWithImageBuffer: buffer, onQueue: self._sessionQueue)
-                            if let customFrame = self._sessionVideoCustomContextPreviewImageBuffer {
-                                self.videoDelegate?.nextLevel(self, renderToCustomContextWithImageBuffer: customFrame, onQueue: self._sessionQueue)
-                            }
                         }
-
+                        self.videoDelegate?.nextLevel(self, renderToCustomContextWithImageBuffer: buffer, onQueue: self._sessionQueue)
                         CVPixelBufferUnlockBaseAddress(buffer, CVPixelBufferLockFlags(rawValue: 0))
                     }
                 }
