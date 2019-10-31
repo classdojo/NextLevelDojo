@@ -131,7 +131,7 @@ public class NextLevelPreviewMetalRenderer: NSObject {
 
     private var textCoordBuffer: MTLBuffer!
 
-    private var internalBounds: CGRect!
+    private var internalBounds: CGRect = .zero
 
     private var textureTranform: CGAffineTransform?
     
@@ -185,8 +185,15 @@ public class NextLevelPreviewMetalRenderer: NSObject {
         }
 
         let viewBounds = previewBounds ?? metalBufferView.bounds
+        var longAspectAdjustment: Float = 1.0
         if let ratioDimensions = aspectRatio.dimensions {
             internalBounds = AVMakeRect(aspectRatio: ratioDimensions, insideRect: viewBounds)
+
+            let ratioAspect = Float(min(ratioDimensions.width, ratioDimensions.height) / max(ratioDimensions.width, ratioDimensions.height))
+            let internalRatioAspect = Float(min(viewBounds.width, viewBounds.height) / max(viewBounds.width, viewBounds.height))
+
+            longAspectAdjustment = internalRatioAspect / ratioAspect
+
         } else {
             internalBounds = viewBounds
         }
@@ -207,21 +214,20 @@ public class NextLevelPreviewMetalRenderer: NSObject {
         }
         // Resize aspect ratio.
         resizeAspect = min(scaleX, scaleY)
-        let fitComparison = previewContentMode == .aspectFit ? scaleX < scaleY : scaleX > scaleY
+        let fitComparison = previewContentMode == .aspectFill ? scaleX < scaleY : scaleX > scaleY
         if fitComparison {
             scaleY = scaleX / scaleY
             scaleX = Float(internalBounds.width / metalBufferView.bounds.width)
         } else {
             if internalBounds.height > internalBounds.width  {
                 scaleX = scaleY / scaleX
-                scaleY = Float(internalBounds.height / max(metalBufferView.bounds.width, metalBufferView.bounds.height))
+                scaleY = Float(self.internalBounds.height / max(metalBufferView.bounds.width, metalBufferView.bounds.height)) * longAspectAdjustment
             } else {
-                scaleX = Float(internalBounds.width / max(metalBufferView.bounds.width, metalBufferView.bounds.height))
                 scaleY = scaleX / scaleY
+                scaleX = Float(self.internalBounds.width / max(metalBufferView.bounds.width, metalBufferView.bounds.height)) * longAspectAdjustment
             }
         }
 
-        
         var vertScaleX = scaleX
         var vertScaleY = scaleY
         if mirrorEdges {
