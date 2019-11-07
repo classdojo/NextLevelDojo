@@ -204,20 +204,20 @@ public class NextLevelPreviewMetalRenderer: NSObject {
         textureRotation = rotation
 
         if textureWidth > 0 && textureHeight > 0 {
-            if textureHeight > textureWidth {
-                scaleX = Float(internalBounds.width / CGFloat(textureWidth))
-                scaleY = Float(internalBounds.height / CGFloat(textureHeight))
-            } else {
-                scaleX = Float(internalBounds.width / CGFloat(textureWidth))
-                scaleY = Float(internalBounds.height / CGFloat(textureHeight))
-            }
+            scaleX = Float(internalBounds.width / CGFloat(textureWidth))
+            scaleY = Float(internalBounds.height / CGFloat(textureHeight))
         }
         // Resize aspect ratio.
         resizeAspect = min(scaleX, scaleY)
-        let fitComparison = previewContentMode == .aspectFill ? scaleX < scaleY : scaleX > scaleY
-        if fitComparison {
-            scaleY = scaleX / scaleY
-            scaleX = Float(internalBounds.width / metalBufferView.bounds.width)
+        //let fitComparison =  ? scaleX < scaleY : scaleX > scaleY
+        if previewContentMode == .aspectFit {
+            if internalBounds.height > internalBounds.width {
+                scaleY = scaleX / scaleY
+                scaleX = Float(internalBounds.width / metalBufferView.bounds.width)
+            } else {
+                scaleX = scaleY / scaleX
+                scaleY = Float(internalBounds.height / metalBufferView.bounds.height)
+            }
         } else {
             if internalBounds.height > internalBounds.width  {
                 scaleX = scaleY / scaleX
