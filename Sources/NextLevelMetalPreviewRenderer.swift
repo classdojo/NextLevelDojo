@@ -71,7 +71,7 @@ public class NextLevelPreviewMetalRenderer: NSObject {
 
     public var mirrorEdgesBlur: Float = 32.0
     
-    public var previewContentMode: PreviewContentMode = .aspectFill
+    public var previewContentMode: PreviewContentMode = .aspectFit
 
     var shouldAutomaticallyAdjustMirroring: Bool = false
 
