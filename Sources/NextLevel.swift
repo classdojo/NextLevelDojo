@@ -60,6 +60,8 @@ public enum NextLevelDeviceType: Int, CustomStringConvertible {
     case wideAngleCamera
     case telephotoCamera
     case duoCamera
+    case ultraWideAngleCamera
+    case tripleCamera
     #if USE_TRUE_DEPTH
     case trueDepthCamera
     #endif
@@ -86,6 +88,18 @@ public enum NextLevelDeviceType: Int, CustomStringConvertible {
                 return AVCaptureDevice.DeviceType(rawValue: "Unavailable")
             }
             #endif
+        case .ultraWideAngleCamera:
+            if #available(iOS 13.0, *) {
+                return AVCaptureDevice.DeviceType.builtInUltraWideCamera
+            } else {
+                return AVCaptureDevice.DeviceType(rawValue: "Unavailable")
+            }
+        case .tripleCamera:
+            if #available(iOS 13.0, *) {
+                return AVCaptureDevice.DeviceType.builtInTripleCamera
+            } else {
+                return AVCaptureDevice.DeviceType(rawValue: "Unavailable")
+            }
         }
     }
     
@@ -100,6 +114,10 @@ public enum NextLevelDeviceType: Int, CustomStringConvertible {
                 return "Telephoto Camera"
             case .duoCamera:
                 return "Duo Camera"
+            case .ultraWideAngleCamera:
+                return "Ultra Wide Angle Camera"
+            case .tripleCamera:
+                return "Triple Camera"
                 #if USE_TRUE_DEPTH
             case .trueDepthCamera:
                 return "True Depth Camera"
@@ -1019,7 +1037,6 @@ extension NextLevel {
                 
                 if input.device.hasMediaType(AVMediaType.video) {
                     self.addCaptureDeviceObservers(input.device)
-                    self.updateVideoOutputSettings()
                     self._videoInput = input
                 } else {
                     self._audioInput = input
@@ -1086,6 +1103,9 @@ extension NextLevel {
             if session.canAddOutput(videoOutput) {
                 session.addOutput(videoOutput)
                 videoOutput.setSampleBufferDelegate(self, queue: self._sessionQueue)
+                
+                self.updateVideoOutputSettings()
+                
                 return true
             }
         }
@@ -1326,6 +1346,27 @@ extension NextLevel {
             previewConnection.isEnabled = true
         } else if let previewView = self.customPreviewRenderer {
             previewView.isEnabled = true
+        }
+    }
+}
+
+// MARK: - audio device
+
+extension NextLevel {
+    
+    /// Removes the active audio device from the capture session. Will be useful for enabling haptics; as haptics will not work when the audio input device is active
+    public func disableAudioInputDevice() {
+        if let audioInput = self._audioInput, let session = self._captureSession {
+            session.removeInput(audioInput)
+        }
+    }
+    
+    /// Enables the audio input device for the capture session
+    public func enableAudioInputDevice() {
+        if let audioInput = self._audioInput, let session = self._captureSession {
+            if (session.canAddInput(audioInput)) {
+                session.addInput(audioInput)
+            }
         }
     }
 }
