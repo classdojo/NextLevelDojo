@@ -2834,7 +2834,7 @@ extension NextLevel {
     private func checkSessionDuration() {
         if let session = self._recordingSession,
             let maximumCaptureDuration = self.videoConfiguration.maximumCaptureDuration {
-            if maximumCaptureDuration.isValid && session.totalDuration >= maximumCaptureDuration {
+            if maximumCaptureDuration.isValid && session.currentClipDuration >= maximumCaptureDuration {
                 self._recording = false
                 
                 // already on session queue, adding to next cycle
