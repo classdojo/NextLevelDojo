@@ -1400,9 +1400,25 @@ extension NextLevel {
                 session.reset()
             }
         }
-        
+
+        var currentDeviceOrientation: UIDeviceOrientation = UIDevice.current.orientation
+        DispatchQueue.main.sync {
+            switch UIApplication.shared.statusBarOrientation {
+                case .portrait:
+                    currentDeviceOrientation = .portrait
+                case .portraitUpsideDown:
+                    currentDeviceOrientation = .portraitUpsideDown
+                case .landscapeLeft:
+                    currentDeviceOrientation = .landscapeRight
+                case .landscapeRight:
+                    currentDeviceOrientation = .landscapeLeft
+                default:
+                    break
+            }
+        }
+
         var didChangeOrientation = false
-        let currentOrientation = AVCaptureVideoOrientation.avorientationFromUIDeviceOrientation(UIDevice.current.orientation)
+        let currentOrientation = AVCaptureVideoOrientation.avorientationFromUIDeviceOrientation(currentDeviceOrientation)
         
         if !self.isVideoCustomPreviewEnabled, let previewConnection = self.previewLayer.connection {
             if previewConnection.isVideoOrientationSupported && previewConnection.videoOrientation != currentOrientation {
