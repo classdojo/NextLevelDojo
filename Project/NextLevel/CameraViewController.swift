@@ -59,7 +59,6 @@ class CameraViewController: UIViewController {
     // MARK: - object lifecycle
     
     public override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
-        
         super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
     }
     
@@ -68,6 +67,19 @@ class CameraViewController: UIViewController {
     }
     
     deinit {
+
+    }
+
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        return [.portrait]
+    }
+
+    override var shouldAutorotate: Bool {
+        return true
+    }
+
+    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation {
+        return .portrait
     }
     
     // MARK: - view lifecycle
@@ -619,6 +631,17 @@ extension CameraViewController: NextLevelFlashAndTorchDelegate {
 // MARK: - NextLevelVideoDelegate
 
 extension CameraViewController: NextLevelVideoDelegate {
+    func nextLevel(_ nextLevel: NextLevel, renderToCustomContextPreviewWithImageBuffer imageBuffer: CVPixelBuffer, onQueue queue: DispatchQueue) {
+
+    }
+
+    func nextLevel(_ nextLevel: NextLevel, renderToCustomContextWithImageBuffer imageBuffer: CVPixelBuffer, onQueue queue: DispatchQueue) {
+
+    }
+
+    func nextLevel(_ nextLevel: NextLevel, willSetupVideoInSession session: NextLevelSession, sampleBuffer: CMSampleBuffer) {
+        // no-op
+    }
 
     // video zoom
     func nextLevel(_ nextLevel: NextLevel, didUpdateVideoZoomFactor videoZoomFactor: Float) {
@@ -630,10 +653,6 @@ extension CameraViewController: NextLevelVideoDelegate {
     
     @available(iOS 11.0, *)
     func nextLevel(_ nextLevel: NextLevel, willProcessFrame frame: AnyObject, timestamp: TimeInterval, onQueue queue: DispatchQueue) {
-    }
-    
-    // enabled by isCustomContextVideoRenderingEnabled
-    func nextLevel(_ nextLevel: NextLevel, renderToCustomContextWithImageBuffer imageBuffer: CVPixelBuffer, onQueue queue: DispatchQueue) {
     }
     
     // video recording session
