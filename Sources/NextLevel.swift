@@ -252,6 +252,8 @@ public class NextLevel: NSObject {
     public weak var flashDelegate: NextLevelFlashAndTorchDelegate?
     public weak var videoDelegate: NextLevelVideoDelegate?
     public weak var photoDelegate: NextLevelPhotoDelegate?
+    public weak var orientationUpdateDelegate: NextLevelOrientationUpdateDelegate?
+
     #if USE_TRUE_DEPTH
     public weak var depthDataDelegate: NextLevelDepthDataDelegate?
     #endif
@@ -1408,7 +1410,7 @@ extension NextLevel {
         var didChangeOrientation = false
         let deviceOrientation = UIDevice.current.orientation
         let currentOrientation = AVCaptureVideoOrientation.avorientationFromUIDeviceOrientation(deviceOrientation)
-        guard deviceDelegate?.shouldChangeDeviceOrientation(deviceOrientation: currentOrientation) ?? true else {
+        guard orientationUpdateDelegate?.shouldChangeDeviceOrientation(deviceOrientation: currentOrientation) ?? true else {
             return
         }
 

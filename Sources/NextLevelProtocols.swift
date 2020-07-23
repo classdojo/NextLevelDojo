@@ -81,10 +81,15 @@ public protocol NextLevelPreviewDelegate: AnyObject {
 }
 
 /// Device delegate, provides updates on device position, orientation, clean aperture, focus, exposure, and white balances changes.
+public protocol NextLevelOrientationUpdateDelegate: AnyObject {
+
+    func shouldChangeDeviceOrientation(deviceOrientation: NextLevelDeviceOrientation) -> Bool
+}
+
+/// Device delegate, provides updates on device position, orientation, clean aperture, focus, exposure, and white balances changes.
 public protocol NextLevelDeviceDelegate: AnyObject {
     
     // position, orientation
-    func shouldChangeDeviceOrientation(deviceOrientation: NextLevelDeviceOrientation) -> Bool
     func nextLevelDevicePositionWillChange(_ nextLevel: NextLevel)
     func nextLevelDevicePositionDidChange(_ nextLevel: NextLevel)
     func nextLevel(_ nextLevel: NextLevel, didChangeDeviceOrientation deviceOrientation: NextLevelDeviceOrientation)
