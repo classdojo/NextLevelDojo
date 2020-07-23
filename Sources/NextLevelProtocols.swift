@@ -84,6 +84,7 @@ public protocol NextLevelPreviewDelegate: AnyObject {
 public protocol NextLevelDeviceDelegate: AnyObject {
     
     // position, orientation
+    func shouldChangeDeviceOrientation(deviceOrientation: NextLevelDeviceOrientation) -> Bool
     func nextLevelDevicePositionWillChange(_ nextLevel: NextLevel)
     func nextLevelDevicePositionDidChange(_ nextLevel: NextLevel)
     func nextLevel(_ nextLevel: NextLevel, didChangeDeviceOrientation deviceOrientation: NextLevelDeviceOrientation)
