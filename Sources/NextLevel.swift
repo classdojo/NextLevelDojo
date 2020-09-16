@@ -1076,7 +1076,7 @@ extension NextLevel {
             }
             
             var videoSettings = [String(kCVPixelBufferPixelFormatTypeKey):Int(kCVPixelFormatType_32BGRA)]
-            if !self.isVideoCustomPreviewEnabled, let formatTypes = self._videoOutput?.availableVideoPixelFormatTypes {
+            if !self.isVideoCustomPreviewEnabled, let formatTypes = self._videoOutput?.value(forKey: "availableVideoCVPixelFormatTypes") as? [Int] {
                 var supportsFullRange = false
                 var supportsVideoRange = false
                 for format in formatTypes {
