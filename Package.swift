@@ -1,3 +1,4 @@
+// swift-tools-version:5.2
 //
 //  Package.swift
 //  NextLevel (http://nextlevel.engineering/)
@@ -22,13 +23,12 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //  SOFTWARE.
 //
-// swift-tools-version:5.0
 import PackageDescription
 
 let package = Package(
     name: "NextLevel",
     platforms: [
-      .iOS(.v10)
+      .iOS(.v12)
     ],
     products: [
       .library(name: "NextLevel", targets: ["NextLevel"])
