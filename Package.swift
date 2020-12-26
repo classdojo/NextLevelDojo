@@ -37,7 +37,7 @@ let package = Package(
       .target(
           name: "NextLevel",
           path: "Sources",
-          resources: [.copy(Sources/NextLevelPreview.metal)]
+          resources: [.copy("NextLevelPreview.metal")]
       )
     ],
     swiftLanguageVersions: [.v5]
