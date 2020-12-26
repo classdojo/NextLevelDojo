@@ -36,7 +36,7 @@ let package = Package(
     targets: [
       .target(
           name: "NextLevel",
-          path: "Sources"
+          path: "Sources",
           resources: [.copy(Sources/NextLevelPreview.metal)]
       )
     ],
