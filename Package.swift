@@ -1,4 +1,4 @@
-// swift-tools-version:5.2
+// swift-tools-version:5.3
 //
 //  Package.swift
 //  NextLevel (http://nextlevel.engineering/)
@@ -36,7 +36,9 @@ let package = Package(
     targets: [
       .target(
           name: "NextLevel",
-          path: "Sources"
+          path: "Sources",
+          resources: [.process("Sources/NextLevelPreview.metal")],
+          swiftSettings: [SwiftSetting.define("IS_SPM")]
       )
     ],
     swiftLanguageVersions: [.v5]
