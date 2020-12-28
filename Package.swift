@@ -37,7 +37,8 @@ let package = Package(
       .target(
           name: "NextLevel",
           path: "Sources",
-          resources: [.process("Sources/NextLevelPreview.metal")]
+          resources: [.process("Sources/NextLevelPreview.metal")],
+          swiftSettings: [SwiftSetting.define("IS_SPM")]
       )
     ],
     swiftLanguageVersions: [.v5]

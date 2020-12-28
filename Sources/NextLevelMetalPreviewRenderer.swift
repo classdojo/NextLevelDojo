@@ -399,7 +399,7 @@ public class NextLevelPreviewMetalRenderer: NSObject {
 
         var defaultLibrary: MTLLibrary
         do {
-            defaultLibrary = try bufferView.device!.makeDefaultLibrary(bundle: Bundle.module)
+            defaultLibrary = try bufferView.device!.makeDefaultLibrary(bundle: Bundle.NextLevelBundle)
             print(defaultLibrary.functionNames)
         } catch {
             fatalError("Unable to make metal default library. (\(error))")
