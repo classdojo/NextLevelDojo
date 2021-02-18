@@ -231,6 +231,7 @@ public enum NextLevelError: Error, CustomStringConvertible {
     case fileExists
     case nothingRecorded
     case notReadyToRecord
+    case audioSessionInvalidChannelCount(channelCountInAudioChannelLayout: Int?, channelCountInAVNumberOfChannelsKey: Int?)
     
     public var description: String {
         get {
@@ -249,6 +250,8 @@ public enum NextLevelError: Error, CustomStringConvertible {
                 return "Nothing recorded"
             case .notReadyToRecord:
                 return "NextLevel is not ready to record"
+            case let .audioSessionInvalidChannelCount(channelCountInAudioChannelLayout, channelCountInAVNumberOfChannelsKey):
+                return "NextLevel was unable to configure audio session due to a missmatch in channel counts in configuration dictionary for AVAssetWriterInput. AudioChannelLayout channel count: \(String(describing: channelCountInAudioChannelLayout)), AVNumberOfChannelsKey channel count: \(String(describing: channelCountInAVNumberOfChannelsKey))"
             }
         }
     }
@@ -2837,8 +2840,13 @@ extension NextLevel {
         if session.isAudioSetup == false {
             if let settings = self.audioConfiguration.avcaptureSettingsDictionary(sampleBuffer: sampleBuffer),
                 let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) {
-                if !session.setupAudio(withSettings: settings, configuration: self.audioConfiguration, formatDescription: formatDescription) {
-                    print("NextLevel, could not setup audio session")
+                do {
+                    try session.setupAudio(withSettings: settings, configuration: self.audioConfiguration, formatDescription: formatDescription)
+                } catch {
+                    DispatchQueue.main.async {
+                        self.videoDelegate?.nextLevel(self, failedToSetupAudioInSession: session, withError: error as? NextLevelError)
+                    }
+                    return
                 }
             }
             

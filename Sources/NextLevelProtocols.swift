@@ -144,7 +144,8 @@ public protocol NextLevelVideoDelegate: AnyObject {
     func nextLevel(_ nextLevel: NextLevel, willSetupVideoInSession session: NextLevelSession, sampleBuffer: CMSampleBuffer)
     func nextLevel(_ nextLevel: NextLevel, didSetupVideoInSession session: NextLevelSession)
     func nextLevel(_ nextLevel: NextLevel, didSetupAudioInSession session: NextLevelSession)
-    
+    func nextLevel(_ nextLevel: NextLevel, failedToSetupAudioInSession session: NextLevelSession,  withError error: NextLevelError?)
+
     // clip start/stop
     func nextLevel(_ nextLevel: NextLevel, didStartClipInSession session: NextLevelSession)
     func nextLevel(_ nextLevel: NextLevel, didCompleteClip clip: NextLevelClip, inSession session: NextLevelSession)

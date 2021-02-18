@@ -376,7 +376,7 @@ public class NextLevelAudioConfiguration: NextLevelConfiguration {
         }
         
         var config: [String : Any] = [AVEncoderBitRateKey : NSNumber(integerLiteral: self.bitRate)]
-        
+
         if let sampleBuffer = sampleBuffer, let formatDescription: CMFormatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) {
             if let _ = self.sampleRate, let _ = self.channelsCount {
                 // loading user provided settings after buffer use
