@@ -168,6 +168,7 @@ class CameraViewController: UIViewController {
         nextLevel.videoDelegate = self
         nextLevel.photoDelegate = self
         nextLevel.metadataObjectsDelegate = self
+        nextLevel.breadcrumbProvider = self
         
         // video configuration
         nextLevel.videoConfiguration.preset = AVCaptureSession.Preset.hd1280x720
@@ -619,6 +620,9 @@ extension CameraViewController: NextLevelFlashAndTorchDelegate {
 // MARK: - NextLevelVideoDelegate
 
 extension CameraViewController: NextLevelVideoDelegate {
+    func nextLevel(_ nextLevel: NextLevel, willSetupVideoInSession session: NextLevelSession, sampleBuffer: CMSampleBuffer) {
+
+    }
 
     // video zoom
     func nextLevel(_ nextLevel: NextLevel, didUpdateVideoZoomFactor videoZoomFactor: Float) {
@@ -634,6 +638,11 @@ extension CameraViewController: NextLevelVideoDelegate {
     
     // enabled by isCustomContextVideoRenderingEnabled
     func nextLevel(_ nextLevel: NextLevel, renderToCustomContextWithImageBuffer imageBuffer: CVPixelBuffer, onQueue queue: DispatchQueue) {
+        
+    }
+
+    func nextLevel(_ nextLevel: NextLevel, renderToCustomContextPreviewWithImageBuffer imageBuffer: CVPixelBuffer, onQueue queue: DispatchQueue) {
+
     }
     
     // video recording session
@@ -642,7 +651,11 @@ extension CameraViewController: NextLevelVideoDelegate {
     
     func nextLevel(_ nextLevel: NextLevel, didSetupAudioInSession session: NextLevelSession) {
     }
-    
+
+    func nextLevel(_ nextLevel: NextLevel, failedToSetupAudioInSession session: NextLevelSession, withError error: NextLevelError?) {
+        nextLevel.stop()
+    }
+
     func nextLevel(_ nextLevel: NextLevel, didStartClipInSession session: NextLevelSession) {
     }
     
@@ -802,3 +815,8 @@ extension CameraViewController: NextLevelMetadataOutputObjectsDelegate {
     }
 }
 
+extension CameraViewController: NextLevelBreadcrumbProviding {
+    func nextLevelBreadcrumb(_ breadcrumb: NextLevelBreadcrumb) {
+        breadcrumb.printLog()
+    }
+}

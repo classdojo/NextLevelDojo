@@ -482,7 +482,7 @@
 				DEVELOPMENT_TEAM = PW68C6MX6N;
 				INFOPLIST_FILE = NextLevel/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = engineering.NextLevel.NL;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ClassDojo.NextLevel;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -496,7 +496,7 @@
 				DEVELOPMENT_TEAM = PW68C6MX6N;
 				INFOPLIST_FILE = NextLevel/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = engineering.NextLevel.NL;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ClassDojo.NextLevel;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
 			};
