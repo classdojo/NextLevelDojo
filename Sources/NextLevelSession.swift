@@ -305,11 +305,11 @@ extension NextLevelSession {
         // The following channel count values has to match, otherwise we'll get:
         // Fatal Exception: NSInvalidArgumentException -[AVAssetWriterInput initWithMediaType:outputSettings:sourceFormatHint:]
         // Description: AudioChannelLayout channel count does not match AVNumberOfChannelsKey channel count
-        let channelCountInAVNumberOfChannelsKey = settings?[AVNumberOfChannelsKey] as? Int
-        let channelCountInAudioChannelLayout = configuration.channelsCount
-        guard let x = channelCountInAVNumberOfChannelsKey, let y = channelCountInAudioChannelLayout, x == y else {
-            throw NextLevelError.audioSessionInvalidChannelCount(channelCountInAudioChannelLayout: channelCountInAudioChannelLayout,
-                                                                 channelCountInAVNumberOfChannelsKey: channelCountInAVNumberOfChannelsKey)
+        let numberOfChannels = settings?[AVNumberOfChannelsKey] as? Int
+        let audioChannelLayoutChannelCount = configuration.audioChannelLayoutChannelCount
+        guard numberOfChannels != nil, audioChannelLayoutChannelCount != nil, numberOfChannels == audioChannelLayoutChannelCount else {
+            throw NextLevelError.audioSessionInvalidChannelCount(channelCountInAudioChannelLayout: audioChannelLayoutChannelCount,
+                                                                 channelCountInAVNumberOfChannelsKey: numberOfChannels)
         }
 
         self._audioInput = AVAssetWriterInput(mediaType: AVMediaType.audio, outputSettings: settings, sourceFormatHint: formatDescription)
