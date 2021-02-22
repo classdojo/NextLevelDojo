@@ -2843,6 +2843,17 @@ extension NextLevel {
                 do {
                     try session.setupAudio(withSettings: settings, configuration: self.audioConfiguration, formatDescription: formatDescription)
                 } catch {
+                    // synchronously stop the session to avoid sample buffer updates. Not doing this would result in
+                    // repeat call of this function and multiple triggers of failedToSetupAudioInSession function
+                    executeClosureSyncOnSessionQueueIfNecessary {
+                        if let session = self._captureSession, session.isRunning == true {
+                            session.stopRunning()
+                        }
+                    }
+
+                    // asynchronously stop the session and properly clean up the NextLevel session
+                    stop()
+
                     DispatchQueue.main.async {
                         self.videoDelegate?.nextLevel(self, failedToSetupAudioInSession: session, withError: error as? NextLevelError)
                     }
