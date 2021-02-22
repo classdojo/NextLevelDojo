@@ -353,6 +353,9 @@ public class NextLevelAudioConfiguration: NextLevelConfiguration {
     /// Number of channels, AV dictionary key AVNumberOfChannelsKey
     public var channelsCount: Int?
 
+    /// Number of channels specified in the audioChannelLayout class retrieved from the sampleBuffer
+    public private(set) var audioChannelLayoutChannelCount: Int?
+
     /// Audio data format identifier, AV dictionary key AVFormatIDKey
     /// https://developer.apple.com/reference/coreaudio/1613060-core_audio_data_types
     public var format: AudioFormatID = kAudioFormatMPEG4AAC
@@ -387,6 +390,9 @@ public class NextLevelAudioConfiguration: NextLevelConfiguration {
             
             var layoutSize: Int = 0
             if let currentChannelLayout = CMAudioFormatDescriptionGetChannelLayout(formatDescription, sizeOut: &layoutSize) {
+                let audioChannelLayout = AVAudioChannelLayout(layout: currentChannelLayout)
+                self.audioChannelLayoutChannelCount = Int(audioChannelLayout.channelCount)
+
                 let currentChannelLayoutData = layoutSize > 0 ? Data(bytes: currentChannelLayout, count:layoutSize) : Data()
                 config[AVChannelLayoutKey] = currentChannelLayoutData
             }
