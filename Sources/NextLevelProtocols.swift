@@ -62,7 +62,7 @@ public protocol NextLevelDelegate: AnyObject {
     func nextLevelSessionDidStop(_ nextLevel: NextLevel)
     
     // session interruption
-    func nextLevelSessionWasInterrupted(_ nextLevel: NextLevel)
+    func nextLevelSessionWasInterrupted(_ nextLevel: NextLevel, interruptionReason: AVCaptureSession.InterruptionReason?)
     func nextLevelSessionInterruptionEnded(_ nextLevel: NextLevel)
     
     // mode

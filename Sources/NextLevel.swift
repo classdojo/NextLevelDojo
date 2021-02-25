@@ -3237,7 +3237,11 @@ extension NextLevel {
             }
             
             DispatchQueue.main.async {
-                self.delegate?.nextLevelSessionWasInterrupted(self)
+                var interruptionReason: AVCaptureSession.InterruptionReason? = nil
+                if let rawValue = notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as? Int {
+                    interruptionReason = AVCaptureSession.InterruptionReason(rawValue: rawValue)
+                }
+                self.delegate?.nextLevelSessionWasInterrupted(self, interruptionReason: interruptionReason)
             }
         }
     }
