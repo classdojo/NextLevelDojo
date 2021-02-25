@@ -32,7 +32,7 @@ import AVFoundation
 public class NextLevelSession {
 
     // A weak reference to an object that is listening for breadcrumbs
-    public weak var breadcrumbProvider: NextLevelBreadcrumbProviding?
+    public weak var breadcrumbConsumer: NextLevelBreadcrumbConsuming?
 
     /// Output directory for a session.
     public var outputDirectory: String
@@ -264,7 +264,7 @@ extension NextLevelSession {
                 let _ = settings?[AVVideoHeightKey] {
                 self._videoInput = AVAssetWriterInput(mediaType: AVMediaType.video, outputSettings: settings)
             } else {
-                breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevelSession, configuration failure for video output"))
+                breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevelSession, configuration failure for video output"))
                 self._videoInput = nil
                 return false
             }
@@ -301,15 +301,17 @@ extension NextLevelSession {
     /// - Returns: True when setup completes successfully
     /// - Throws: 'NextLevelError.authorization' when permissions are not authorized, 'NextLevelError.started' when the session has already started.
 
-    public func setupAudio(withSettings settings: [String : Any]?, configuration: NextLevelAudioConfiguration, formatDescription: CMFormatDescription) throws {
-        // The following channel count values has to match, otherwise we'll get:
-        // Fatal Exception: NSInvalidArgumentException -[AVAssetWriterInput initWithMediaType:outputSettings:sourceFormatHint:]
-        // Description: AudioChannelLayout channel count does not match AVNumberOfChannelsKey channel count
-        let numberOfChannels = settings?[AVNumberOfChannelsKey] as? Int
-        let audioChannelLayoutChannelCount = configuration.audioChannelLayoutChannelCount
-        guard numberOfChannels != nil, audioChannelLayoutChannelCount != nil, numberOfChannels == audioChannelLayoutChannelCount else {
-            throw NextLevelError.audioSessionInvalidChannelCount(channelCountInAudioChannelLayout: audioChannelLayoutChannelCount,
-                                                                 channelCountInAVNumberOfChannelsKey: numberOfChannels)
+    public func setupAudio(withSettings settings: [String : Any]?, configuration: NextLevelAudioConfiguration, formatDescription: CMFormatDescription, shouldVerifyChannelCount: Bool = false) throws {
+        if shouldVerifyChannelCount {
+            // The following channel count values has to match, otherwise we'll get:
+            // Fatal Exception: NSInvalidArgumentException -[AVAssetWriterInput initWithMediaType:outputSettings:sourceFormatHint:]
+            // Description: AudioChannelLayout channel count does not match AVNumberOfChannelsKey channel count
+            let numberOfChannels = settings?[AVNumberOfChannelsKey] as? Int
+            let audioChannelLayoutChannelCount = configuration.audioChannelLayoutChannelCount
+            guard numberOfChannels != nil, audioChannelLayoutChannelCount != nil, numberOfChannels == audioChannelLayoutChannelCount else {
+                throw NextLevelError.audioSessionInvalidChannelCount(channelCountInAudioChannelLayout: audioChannelLayoutChannelCount,
+                                                                     channelCountInAVNumberOfChannelsKey: numberOfChannels)
+            }
         }
 
         self._audioInput = AVAssetWriterInput(mediaType: AVMediaType.audio, outputSettings: settings, sourceFormatHint: formatDescription)
@@ -334,7 +336,7 @@ extension NextLevelSession {
                     if writer.canAdd(videoInput) {
                         writer.add(videoInput)
                     } else {
-                        breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, could not add video input to session"))
+                        breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, could not add video input to session"))
                     }
                 }
                 
@@ -342,7 +344,7 @@ extension NextLevelSession {
                     if writer.canAdd(audioInput) {
                         writer.add(audioInput)
                     } else {
-                        breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, could not add audio input to session"))
+                        breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, could not add audio input to session"))
                     }
                 }
                 
@@ -352,12 +354,12 @@ extension NextLevelSession {
                     self._currentClipHasStarted = true
                 } else {
                     let errorMessage = "NextLevel, writer encountered an error \(String(describing: writer.error))"
-                    breadcrumbProvider?.nextLevelBreadcrumb(.init(message: errorMessage))
+                    breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: errorMessage))
                     self._writer = nil
                 }
             }
         } catch {
-            breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel could not create asset writer"))
+            breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel could not create asset writer"))
         }
     }
     
@@ -551,7 +553,7 @@ extension NextLevelSession {
                 self._currentClipHasAudio = false
                 self._currentClipHasVideo = false
             } else {
-                self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, clip has already been created."))
+                self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, clip has already been created."))
             }
         }
     }
@@ -736,7 +738,7 @@ extension NextLevelSession {
             if !self._clips.isEmpty {
                 
                 if self._clips.count == 1 {
-                    self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, warning, a merge was requested for a single clip, use lastClipUrl instead"))
+                    self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, warning, a merge was requested for a single clip, use lastClipUrl instead"))
                 }
                 
                 asset = self.asset
@@ -841,7 +843,7 @@ extension NextLevelSession {
             do {
                 try compositionTrack.insertTimeRange(timeRange, of: track, at: startTime)
             } catch {
-                breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, failed to insert composition track"))
+                breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, failed to insert composition track"))
             }
             return (startTime + timeRange.duration)
         }
@@ -870,7 +872,7 @@ extension NextLevelSession {
             do {
                 try FileManager.default.removeItem(atPath: fileUrl.path)
             } catch {
-                breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, could not remove file at path"))
+                breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, could not remove file at path"))
             }
         }
     }

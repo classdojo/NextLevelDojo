@@ -35,10 +35,10 @@ import ARKit
 #endif
 
 public struct NextLevelBreadcrumb {
-    let message: String
-    let file: String
-    let function: String
-    let line: Int
+    public let message: String
+    public let file: String
+    public let function: String
+    public let line: Int
 
     init(message: String, file: String = #fileID, function: String = #function, line: Int = #line) {
         self.message = message
@@ -47,12 +47,12 @@ public struct NextLevelBreadcrumb {
         self.line = line
     }
 
-    func printLog() {
+    public func printLog() {
         print("\(function) line \(line) - \(message)")
     }
 }
 
-public protocol NextLevelBreadcrumbProviding: AnyObject {
+public protocol NextLevelBreadcrumbConsuming: AnyObject {
     func nextLevelBreadcrumb(_ breadcrumb: NextLevelBreadcrumb)
 }
 
@@ -278,9 +278,9 @@ public class NextLevel: NSObject {
     public weak var videoDelegate: NextLevelVideoDelegate?
     public weak var photoDelegate: NextLevelPhotoDelegate?
 
-    public weak var breadcrumbProvider: NextLevelBreadcrumbProviding? {
+    public weak var breadcrumbConsumer: NextLevelBreadcrumbConsuming? {
         didSet {
-            session?.breadcrumbProvider = breadcrumbProvider
+            session?.breadcrumbConsumer = breadcrumbConsumer
         }
     }
 
@@ -318,6 +318,7 @@ public class NextLevel: NSObject {
     
     /// Configuration for audio
     public var audioConfiguration: NextLevelAudioConfiguration
+    public var shouldVerifyChannelCount: Bool = false
     
     /// Configuration for photos
     public var photoConfiguration: NextLevelPhotoConfiguration
@@ -465,7 +466,7 @@ public class NextLevel: NSObject {
     internal var _recording: Bool = false
     internal var _recordingSession: NextLevelSession? {
         didSet {
-            _recordingSession?.breadcrumbProvider = breadcrumbProvider
+            _recordingSession?.breadcrumbConsumer = breadcrumbConsumer
         }
     }
 
@@ -734,7 +735,7 @@ extension NextLevel {
                     self.delegate?.nextLevelSessionWillStart(self)
                     session.startRunning()
                     self.previewDelegate?.nextLevelWillStartPreview(self)
-                    self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "nextLevelWillStartPreview"))
+                    self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "nextLevelWillStartPreview"))
                     // nextLevelSessionDidStart is called from AVFoundation
                 }
             }
@@ -916,7 +917,7 @@ extension NextLevel {
                 if session.canSetSessionPreset(self.videoConfiguration.preset) {
                     session.sessionPreset = self.videoConfiguration.preset
                 } else {
-                    breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, could not set preset on session"))
+                    breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, could not set preset on session"))
                 }
             }
             
@@ -938,7 +939,7 @@ extension NextLevel {
                 if session.canSetSessionPreset(self.photoConfiguration.preset) {
                     session.sessionPreset = self.photoConfiguration.preset
                 } else {
-                    breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, could not set preset on session"))
+                    breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, could not set preset on session"))
                 }
             }
 
@@ -1050,7 +1051,7 @@ extension NextLevel {
                 captureDevice.unlockForConfiguration()
             }
             catch {
-                breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, low light failed to lock device for configuration"))
+                breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, low light failed to lock device for configuration"))
             }
         }
         
@@ -1082,7 +1083,7 @@ extension NextLevel {
                 return true
             }
         } catch  {
-            breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, failure adding input device"))
+            breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, failure adding input device"))
         }
         return false
     }
@@ -1146,7 +1147,7 @@ extension NextLevel {
                 return true
             }
         }
-        breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, couldn't add video output to session"))
+        breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, couldn't add video output to session"))
         return false
         
     }
@@ -1164,7 +1165,7 @@ extension NextLevel {
                 return true
             }
         }
-        breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, couldn't add audio output to session"))
+        breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, couldn't add audio output to session"))
         return false
         
     }
@@ -1182,7 +1183,7 @@ extension NextLevel {
                 return true
             }
         }
-        breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, couldn't add photo output to session"))
+        breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, couldn't add photo output to session"))
         return false
         
     }
@@ -1214,7 +1215,7 @@ extension NextLevel {
                 return true
             }
         }
-        breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, couldn't add movie output to session"))
+        breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, couldn't add movie output to session"))
         return false
         
     }
@@ -1242,7 +1243,7 @@ extension NextLevel {
                 }
             }
         }
-        breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, couldn't add depth data output to session"))
+        breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, couldn't add depth data output to session"))
         return false
     }
     #endif
@@ -1263,7 +1264,7 @@ extension NextLevel {
                 return true
             }
         }
-        breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, couldn't enable portrait effects matte delivery in the output"))
+        breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, couldn't enable portrait effects matte delivery in the output"))
         return false
     }
     
@@ -1632,7 +1633,7 @@ extension NextLevel {
                     }
                     device.unlockForConfiguration()
                 } catch {
-                    self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, torchMode failed to lock device for configuration"))
+                    self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, torchMode failed to lock device for configuration"))
                 }
             }
         }
@@ -1698,7 +1699,7 @@ extension NextLevel {
                     device.focusMode = newValue
                     device.unlockForConfiguration()
                 } catch {
-                    self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, focusMode failed to lock device for configuration"))
+                    self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, focusMode failed to lock device for configuration"))
                 }
             }
         }
@@ -1730,7 +1731,7 @@ extension NextLevel {
                 device.unlockForConfiguration()
             }
             catch {
-                self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, lens position failed to lock device for configuration"))
+                self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, lens position failed to lock device for configuration"))
             }
         }
     }
@@ -1772,7 +1773,7 @@ extension NextLevel {
             device.unlockForConfiguration()
         }
         catch {
-            breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, focusExposeAndAdjustWhiteBalance failed to lock device for configuration"))
+            breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, focusExposeAndAdjustWhiteBalance failed to lock device for configuration"))
         }
     }
     
@@ -1799,7 +1800,7 @@ extension NextLevel {
             device.unlockForConfiguration()
         }
         catch {
-            breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, focusAtAdjustedPointOfInterest failed to lock device for configuration"))
+            breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, focusAtAdjustedPointOfInterest failed to lock device for configuration"))
         }
     }
     
@@ -1850,7 +1851,7 @@ extension NextLevel {
                 device.unlockForConfiguration()
             }
             catch {
-                breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, exposureMode failed to lock device for configuration"))
+                breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, exposureMode failed to lock device for configuration"))
             }
         }
     }
@@ -1877,7 +1878,7 @@ extension NextLevel {
             device.unlockForConfiguration()
         }
         catch {
-            breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, exposeAtAdjustedPointOfInterest failed to lock device for configuration"))
+            breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, exposeAtAdjustedPointOfInterest failed to lock device for configuration"))
         }
     }
     
@@ -1908,7 +1909,7 @@ extension NextLevel {
             
             device.unlockForConfiguration()
         } catch {
-            breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, setExposureModeCustom failed to lock device for configuration"))
+            breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, setExposureModeCustom failed to lock device for configuration"))
         }
     }
     
@@ -1931,7 +1932,7 @@ extension NextLevel {
             
             device.unlockForConfiguration()
         } catch {
-            breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, setExposureModeCustom failed to lock device for configuration"))
+            breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, setExposureModeCustom failed to lock device for configuration"))
         }
     }
     
@@ -1954,7 +1955,7 @@ extension NextLevel {
             
             device.unlockForConfiguration()
         } catch {
-            breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, setExposureTargetBias failed to lock device for configuration"))
+            breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, setExposureTargetBias failed to lock device for configuration"))
         }
     }
     
@@ -2002,7 +2003,7 @@ extension NextLevel {
                     device.whiteBalanceMode = newValue
                     device.unlockForConfiguration()
                 } catch {
-                    self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, whiteBalanceMode failed to lock device for configuration"))
+                    self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, whiteBalanceMode failed to lock device for configuration"))
                 }
             }
         }
@@ -2034,7 +2035,7 @@ extension NextLevel {
                     device.deviceWhiteBalanceGains(for: temperatureAndTint)
                     device.unlockForConfiguration()
                 } catch {
-                    self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, deviceWhiteBalanceGains failed to lock device for configuration"))
+                    self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, deviceWhiteBalanceGains failed to lock device for configuration"))
                 }
             }
         }
@@ -2064,7 +2065,7 @@ extension NextLevel {
                     device.deviceWhiteBalanceGains(for: temperatureAndTint)
                     device.unlockForConfiguration()
                 } catch {
-                    self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, deviceWhiteBalanceGains failed to lock device for configuration"))
+                    self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, deviceWhiteBalanceGains failed to lock device for configuration"))
                 }
             }
         }
@@ -2087,7 +2088,7 @@ extension NextLevel {
             
             device.unlockForConfiguration()
         } catch {
-            breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, setWhiteBalanceModeLocked failed to lock device for configuration"))
+            breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, setWhiteBalanceModeLocked failed to lock device for configuration"))
         }
     }
     
@@ -2164,7 +2165,7 @@ extension NextLevel {
                 device.unlockForConfiguration()
             }
             catch {
-                breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, focus ending failed to lock device for configuration"))
+                breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, focus ending failed to lock device for configuration"))
             }
         }
         
@@ -2197,7 +2198,7 @@ extension NextLevel {
                 device.unlockForConfiguration()
             }
             catch {
-                breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, focus ending failed to lock device for configuration"))
+                breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, focus ending failed to lock device for configuration"))
             }
         }
         
@@ -2247,7 +2248,7 @@ extension NextLevel {
                 }
                 guard device.activeFormat.isSupported(withFrameRate: newValue)
                     else {
-                    self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "unsupported frame rate for current device format config, \(newValue) fps"))
+                    self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "unsupported frame rate for current device format config, \(newValue) fps"))
                         return
                 }
                     
@@ -2260,7 +2261,7 @@ extension NextLevel {
                     
                     device.unlockForConfiguration()
                 } catch {
-                    self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, frame rate failed to lock device for configuration"))
+                    self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, frame rate failed to lock device for configuration"))
                 }
             }
         }
@@ -2319,10 +2320,10 @@ extension NextLevel {
                         self.deviceDelegate?.nextLevel(self, didChangeDeviceFormat: format)
                     }
                 } catch {
-                    self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, active device format failed to lock device for configuration"))
+                    self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, active device format failed to lock device for configuration"))
                 }
             } else {
-                self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "Nextlevel, could not find a current device format matching the requirements"))
+                self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "Nextlevel, could not find a current device format matching the requirements"))
             }
             
         }
@@ -2380,7 +2381,7 @@ extension NextLevel {
                         
                         device.unlockForConfiguration()
                     } catch {
-                        self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, zoomFactor failed to lock device for configuration"))
+                        self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, zoomFactor failed to lock device for configuration"))
                     }
                 }
             }
@@ -2670,7 +2671,7 @@ extension NextLevel {
             if let settings = self.videoConfiguration.avcaptureSettingsDictionary(sampleBuffer: sampleBuffer),
                 var formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) {
                 if !session.setupVideo(withSettings: settings, configuration: self.videoConfiguration, formatDescription: formatDescription) {
-                    breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, could not setup video session"))
+                    breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, could not setup video session"))
                 }
                 
             }
@@ -2772,7 +2773,7 @@ extension NextLevel {
         if session.isVideoSetup == false {
             if let settings = self.videoConfiguration.avcaptureSettingsDictionary(pixelBuffer: pixelBuffer) {
                 if !session.setupVideo(withSettings: settings, configuration: self.videoConfiguration) {
-                    breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, could not setup video session"))
+                    breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, could not setup video session"))
                 }
             }
             DispatchQueue.main.async {
@@ -2841,23 +2842,30 @@ extension NextLevel {
             if let settings = self.audioConfiguration.avcaptureSettingsDictionary(sampleBuffer: sampleBuffer),
                 let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) {
                 do {
-                    try session.setupAudio(withSettings: settings, configuration: self.audioConfiguration, formatDescription: formatDescription)
+                    try session.setupAudio(withSettings: settings,
+                                           configuration: self.audioConfiguration,
+                                           formatDescription: formatDescription,
+                                           shouldVerifyChannelCount: shouldVerifyChannelCount)
                 } catch {
-                    // synchronously stop the session to avoid sample buffer updates. Not doing this would result in
-                    // repeat call of this function and multiple triggers of failedToSetupAudioInSession function
-                    executeClosureSyncOnSessionQueueIfNecessary {
-                        if let session = self._captureSession, session.isRunning == true {
-                            session.stopRunning()
+                    if shouldVerifyChannelCount {
+                        // synchronously stop the session to avoid sample buffer updates. Not doing this would result in
+                        // repeat call of this function and multiple triggers of failedToSetupAudioInSession function
+                        executeClosureSyncOnSessionQueueIfNecessary {
+                            if let session = self._captureSession, session.isRunning == true {
+                                session.stopRunning()
+                            }
                         }
-                    }
 
-                    // asynchronously stop the session and properly clean up the NextLevel session
-                    stop()
+                        // asynchronously stop the session and properly clean up the NextLevel session
+                        stop()
 
-                    DispatchQueue.main.async {
-                        self.videoDelegate?.nextLevel(self, failedToSetupAudioInSession: session, withError: error as? NextLevelError)
+                        DispatchQueue.main.async {
+                            self.videoDelegate?.nextLevel(self, failedToSetupAudioInSession: session, withError: error as? NextLevelError)
+                        }
+                        return
+                    } else {
+                        breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, could not setup audio session"))
                     }
-                    return
                 }
             }
             
@@ -3210,7 +3218,7 @@ extension NextLevel {
             if let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError {
                 switch error.code {
                 case .deviceIsNotAvailableInBackground:
-                    self.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, error, media services are not available in the background"))
+                    self.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, error, media services are not available in the background"))
                     break
                 case .mediaServicesWereReset:
                     fallthrough
@@ -3442,7 +3450,7 @@ extension NextLevel {
                     captureDevice.unlockForConfiguration()
                 }
                 catch {
-                    self?.breadcrumbProvider?.nextLevelBreadcrumb(.init(message: "NextLevel, failed to lock device for white balance exposure configuration"))
+                    self?.breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, failed to lock device for white balance exposure configuration"))
                 }
             }
             
@@ -3459,5 +3467,4 @@ extension NextLevel {
         }
         self._captureOutputObservers.removeAll()
     }
-    
 }
