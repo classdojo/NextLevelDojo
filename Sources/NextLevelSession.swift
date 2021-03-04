@@ -302,7 +302,8 @@ extension NextLevelSession {
     /// - Throws: 'NextLevelError.authorization' when permissions are not authorized, 'NextLevelError.started' when the session has already started.
 
     public func setupAudio(withSettings settings: [String : Any]?, configuration: NextLevelAudioConfiguration, formatDescription: CMFormatDescription, shouldVerifyChannelCount: Bool = false) throws {
-        if shouldVerifyChannelCount {
+        // verify channel count only if AVChannelLayoutKey is present. AVChannelLayoutKey is optional for channel count == 1 or 2.
+        if shouldVerifyChannelCount, settings?[AVChannelLayoutKey] != nil {
             // The following channel count values has to match, otherwise we'll get:
             // Fatal Exception: NSInvalidArgumentException -[AVAssetWriterInput initWithMediaType:outputSettings:sourceFormatHint:]
             // Description: AudioChannelLayout channel count does not match AVNumberOfChannelsKey channel count

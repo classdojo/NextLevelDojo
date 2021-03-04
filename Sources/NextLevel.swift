@@ -319,6 +319,7 @@ public class NextLevel: NSObject {
     /// Configuration for audio
     public var audioConfiguration: NextLevelAudioConfiguration
     public var shouldVerifyChannelCount: Bool = false
+    public var shouldUseRecommendedAudioSettings: Bool = false
     
     /// Configuration for photos
     public var photoConfiguration: NextLevelPhotoConfiguration
@@ -2839,7 +2840,14 @@ extension NextLevel {
     
     internal func handleAudioOutput(sampleBuffer: CMSampleBuffer, session: NextLevelSession) {
         if session.isAudioSetup == false {
-            if let settings = self.audioConfiguration.avcaptureSettingsDictionary(sampleBuffer: sampleBuffer),
+            var audioSettings: [String: Any]?
+            if shouldUseRecommendedAudioSettings, let audioOutput = _audioOutput {
+                audioSettings = self.audioConfiguration.recommendedAudioSettingsDictionary(audioOutput: audioOutput, fileType: session.fileType)
+            } else {
+                audioSettings = self.audioConfiguration.avcaptureSettingsDictionary(sampleBuffer: sampleBuffer)
+            }
+
+            if let settings = audioSettings,
                 let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) {
                 do {
                     try session.setupAudio(withSettings: settings,

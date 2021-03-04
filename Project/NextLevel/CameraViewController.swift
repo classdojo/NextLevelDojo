@@ -168,7 +168,7 @@ class CameraViewController: UIViewController {
         nextLevel.videoDelegate = self
         nextLevel.photoDelegate = self
         nextLevel.metadataObjectsDelegate = self
-        nextLevel.breadcrumbProvider = self
+        nextLevel.breadcrumbConsumer = self
         
         // video configuration
         nextLevel.videoConfiguration.preset = AVCaptureSession.Preset.hd1280x720
@@ -177,7 +177,7 @@ class CameraViewController: UIViewController {
         nextLevel.videoConfiguration.profileLevel = AVVideoProfileLevelH264HighAutoLevel
 
         // audio configuration
-        nextLevel.audioConfiguration.bitRate = 96000
+        nextLevel.shouldUseRecommendedAudioSettings = true
 
         // metadata objects configuration
         nextLevel.metadataObjectTypes = [AVMetadataObject.ObjectType.face, AVMetadataObject.ObjectType.qr]
@@ -515,9 +515,9 @@ extension CameraViewController: NextLevelDelegate {
     }
     
     // interruption
-    func nextLevelSessionWasInterrupted(_ nextLevel: NextLevel) {
+    func nextLevelSessionWasInterrupted(_ nextLevel: NextLevel, interruptionReason: AVCaptureSession.InterruptionReason?) {
     }
-    
+
     func nextLevelSessionInterruptionEnded(_ nextLevel: NextLevel) {
     }
     
@@ -815,7 +815,7 @@ extension CameraViewController: NextLevelMetadataOutputObjectsDelegate {
     }
 }
 
-extension CameraViewController: NextLevelBreadcrumbProviding {
+extension CameraViewController: NextLevelBreadcrumbConsuming {
     func nextLevelBreadcrumb(_ breadcrumb: NextLevelBreadcrumb) {
         breadcrumb.printLog()
     }
