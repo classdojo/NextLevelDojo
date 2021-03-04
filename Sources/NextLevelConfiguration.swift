@@ -414,6 +414,24 @@ public class NextLevelAudioConfiguration: NextLevelConfiguration {
         
         return config
     }
+
+    public func recommendedAudioSettingsDictionary(audioOutput: AVCaptureAudioDataOutput) -> [String: Any]? {
+        let config = audioOutput.recommendedAudioSettingsForAssetWriter(writingTo: .mov) as? [String: Any]
+
+        // update values based on recommended settings
+        self.sampleRate = config?[AVSampleRateKey] as? Float64
+        self.channelsCount = config?[AVNumberOfChannelsKey] as? Int
+
+        if let bitRate = config?[AVEncoderBitRatePerChannelKey] as? Int {
+            self.bitRate = bitRate
+        }
+
+        if let formatID = config?[AVFormatIDKey] as? UInt32 {
+            self.format = formatID
+        }
+
+        return config
+    }
 }
 
 // MARK: - PhotoConfiguration
