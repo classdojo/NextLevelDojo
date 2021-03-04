@@ -2842,7 +2842,7 @@ extension NextLevel {
         if session.isAudioSetup == false {
             var audioSettings: [String: Any]?
             if shouldUseRecommendedAudioSettings, let audioOutput = _audioOutput {
-                audioSettings = self.audioConfiguration.recommendedAudioSettingsDictionary(audioOutput: audioOutput)
+                audioSettings = self.audioConfiguration.recommendedAudioSettingsDictionary(audioOutput: audioOutput, fileType: session.fileType)
             } else {
                 audioSettings = self.audioConfiguration.avcaptureSettingsDictionary(sampleBuffer: sampleBuffer)
             }
