@@ -2724,7 +2724,7 @@ extension NextLevel {
             self.videoDelegate?.nextLevel(self, willSetupVideoInSession: session, sampleBuffer: sampleBuffer)
             
             if let settings = self.videoConfiguration.avcaptureSettingsDictionary(sampleBuffer: sampleBuffer),
-                var formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) {
+                let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) {
                 if !session.setupVideo(withSettings: settings, configuration: self.videoConfiguration, formatDescription: formatDescription) {
                     breadcrumbConsumer?.nextLevelBreadcrumb(.init(message: "NextLevel, could not setup video session"))
                 }

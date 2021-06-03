@@ -171,7 +171,7 @@ class CameraViewController: UIViewController {
         nextLevel.photoDelegate = self
         nextLevel.metadataObjectsDelegate = self
         nextLevel.breadcrumbConsumer = self
-        
+
         // video configuration
         nextLevel.videoConfiguration.preset = AVCaptureSession.Preset.hd1280x720
         nextLevel.videoConfiguration.bitRate = 5500000
@@ -640,7 +640,7 @@ extension CameraViewController: NextLevelVideoDelegate {
 
     // enabled by isCustomContextVideoRenderingEnabled
     func nextLevel(_ nextLevel: NextLevel, renderToCustomContextWithImageBuffer imageBuffer: CVPixelBuffer, onQueue queue: DispatchQueue) {
-        
+
     }
 
     func nextLevel(_ nextLevel: NextLevel, renderToCustomContextPreviewWithImageBuffer imageBuffer: CVPixelBuffer, onQueue queue: DispatchQueue) {
