@@ -1,4 +1,4 @@
-// swift-tools-version:5.2
+// swift-tools-version:5.5
 //
 //  Package.swift
 //  NextLevel (http://nextlevel.engineering/)
@@ -28,7 +28,7 @@ import PackageDescription
 let package = Package(
     name: "NextLevel",
     platforms: [
-      .iOS(.v14)
+        .iOS(.v14)
     ],
     products: [
       .library(name: "NextLevel", targets: ["NextLevel"])

@@ -416,7 +416,7 @@ public class NextLevelAudioConfiguration: NextLevelConfiguration {
     }
 
     public func recommendedAudioSettingsDictionary(audioOutput: AVCaptureAudioDataOutput, fileType: AVFileType) -> [String: Any]? {
-        let config = audioOutput.recommendedAudioSettingsForAssetWriter(writingTo: fileType) as? [String: Any]
+        let config = audioOutput.recommendedAudioSettingsForAssetWriter(writingTo: fileType)
 
         // update values based on recommended settings
         self.sampleRate = config?[AVSampleRateKey] as? Float64
