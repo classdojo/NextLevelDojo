@@ -87,6 +87,7 @@ public protocol NextLevelPreviewDelegate: AnyObject {
 public protocol NextLevelDeviceDelegate: AnyObject {
 
     // position, orientation
+	var nextLevelCurrentDeviceOrientation: (() -> AVCaptureVideoOrientation)? { get }
     func nextLevelDevicePositionWillChange(_ nextLevel: NextLevel)
     func nextLevelDevicePositionDidChange(_ nextLevel: NextLevel)
     func nextLevel(_ nextLevel: NextLevel, didChangeDeviceOrientation deviceOrientation: NextLevelDeviceOrientation)
@@ -104,10 +105,21 @@ public protocol NextLevelDeviceDelegate: AnyObject {
 
     func nextLevelWillChangeExposure(_ nextLevel: NextLevel)
     func nextLevelDidChangeExposure(_ nextLevel: NextLevel)
+	func nextLevel(_ nextLevel: NextLevel, didChangeExposureDuration exposureDuration: CMTime)
 
     func nextLevelWillChangeWhiteBalance(_ nextLevel: NextLevel)
     func nextLevelDidChangeWhiteBalance(_ nextLevel: NextLevel)
 
+}
+
+public extension NextLevelDeviceDelegate {
+
+	// Empty default implementations of recently added protocol methods, to make them optional and not break existing code.
+
+	var nextLevelCurrentDeviceOrientation: (() -> AVCaptureVideoOrientation)? { nil }
+
+	func nextLevel(_ nextLevel: NextLevel, didChangeExposureDuration exposureDuration: CMTime) {
+	}
 }
 
 // MARK: - NextLevelFlashAndTorchDelegate

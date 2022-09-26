@@ -104,23 +104,11 @@ public enum NextLevelDeviceType: Int, CustomStringConvertible {
             return AVCaptureDevice.DeviceType.builtInTrueDepthCamera
             #endif
         case .dualWideCamera:
-            if #available(iOS 13.0, *) {
-                return AVCaptureDevice.DeviceType.builtInDualWideCamera
-            } else {
-                return AVCaptureDevice.DeviceType(rawValue: "Unavailable")
-            }
+            return AVCaptureDevice.DeviceType.builtInDualWideCamera
         case .ultraWideAngleCamera:
-            if #available(iOS 13.0, *) {
-                return AVCaptureDevice.DeviceType.builtInUltraWideCamera
-            } else {
-                return AVCaptureDevice.DeviceType(rawValue: "Unavailable")
-            }
+            return AVCaptureDevice.DeviceType.builtInUltraWideCamera
         case .tripleCamera:
-            if #available(iOS 13.0, *) {
-                return AVCaptureDevice.DeviceType.builtInTripleCamera
-            } else {
-                return AVCaptureDevice.DeviceType(rawValue: "Unavailable")
-            }
+            return AVCaptureDevice.DeviceType.builtInTripleCamera
         }
     }
 
@@ -379,8 +367,10 @@ public class NextLevel: NSObject {
     /// The current orientation of the device.
     public var deviceOrientation: NextLevelDeviceOrientation = .portrait {
         didSet {
-            self.automaticallyUpdatesDeviceOrientation = false
-            self.updateVideoOrientation()
+            automaticallyUpdatesDeviceOrientation = false
+			_sessionQueue.sync {
+				updateVideoOrientation()
+			}
         }
     }
 
@@ -440,7 +430,6 @@ public class NextLevel: NSObject {
                 }
                 return false
             }
-
 
         }
     }
@@ -1827,6 +1816,16 @@ extension NextLevel {
         }
     }
 
+	/// Checks if custom exposure mode is supported.
+	public var isCustomExposureSupported: Bool {
+		get {
+			if let device: AVCaptureDevice = self._currentDevice {
+				return device.isExposureModeSupported(.custom)
+			}
+			return false
+		}
+	}
+
     /// Checks if an exposure adjustment is progress.
     public var isAdjustingExposure: Bool {
         get {
@@ -1898,7 +1897,8 @@ extension NextLevel {
     /// - Parameter duration: The exposure duration in seconds.
     /// - Parameter durationPower: Larger power values will increase the sensitivity at shorter durations.
     /// - Parameter minDurationRangeLimit: Minimum limitation for duration.
-    public func expose(withDuration duration: Double, durationPower: Double = 5, minDurationRangeLimit: Double = (1.0 / 1000.0)) {
+	/// - Parameter completionHandler: Called at completion.
+    public func expose(withDuration duration: Double, durationPower: Double = 5, minDurationRangeLimit: Double = (1.0 / 1000.0), completionHandler: ((CMTime) -> Void)? = nil) {
         guard let device = self._currentDevice,
             !device.isAdjustingExposure
             else {
@@ -1916,7 +1916,9 @@ extension NextLevel {
         do {
             try device.lockForConfiguration()
 
-            device.setExposureModeCustom(duration: CMTimeMakeWithSeconds( newDurationSeconds, preferredTimescale: 1000*1000*1000 ), iso: AVCaptureDevice.currentISO, completionHandler: nil)
+			if device.isExposureModeSupported(.custom) {
+				device.setExposureModeCustom(duration: CMTimeMakeWithSeconds( newDurationSeconds, preferredTimescale: 1000*1000*1000 ), iso: AVCaptureDevice.currentISO, completionHandler: completionHandler)
+			}
 
             device.unlockForConfiguration()
         } catch {
@@ -1939,7 +1941,9 @@ extension NextLevel {
         do {
             try device.lockForConfiguration()
 
-            device.setExposureModeCustom(duration: AVCaptureDevice.currentExposureDuration, iso: newISO, completionHandler: nil)
+			if device.isExposureModeSupported(.custom) {
+				device.setExposureModeCustom(duration: AVCaptureDevice.currentExposureDuration, iso: newISO, completionHandler: nil)
+			}
 
             device.unlockForConfiguration()
         } catch {
@@ -1950,9 +1954,11 @@ extension NextLevel {
     /// Adjusts exposure to the specified target bias.
     ///
     /// - Parameter targetBias: The exposure target bias.
-    public func expose(withTargetBias targetBias: Float) {
+	/// - Parameter force: Change even if adjust is already in progress.
+	/// - Parameter completionHandler: Called at completion.
+    public func expose(withTargetBias targetBias: Float, force: Bool = false, completionHandler: ((CMTime) -> Void)? = nil) {
         guard let device = self._currentDevice,
-            !device.isAdjustingExposure
+            !device.isAdjustingExposure || force
             else {
                 return
         }
@@ -1962,7 +1968,7 @@ extension NextLevel {
         do {
             try device.lockForConfiguration()
 
-            device.setExposureTargetBias(newTargetBias, completionHandler: nil)
+            device.setExposureTargetBias(newTargetBias, completionHandler: completionHandler)
 
             device.unlockForConfiguration()
         } catch {
@@ -2339,17 +2345,17 @@ extension NextLevel {
 
         }
     }
-    
+
     /// Changes the current device frame rate to the highest frame rate supported by the device
     public func configureDeviceForHighestFrameRate() {
         self.executeClosureAsyncOnSessionQueueIfNecessary {
             guard let device = self._currentDevice else {
                 return
             }
-            
+
             var bestFormat: AVCaptureDevice.Format?
             var bestFrameRateRange: AVFrameRateRange?
-            
+
             for format in device.formats {
                for range in format.videoSupportedFrameRateRanges {
                    if range.maxFrameRate > bestFrameRateRange?.maxFrameRate ?? 0 {
@@ -2358,20 +2364,20 @@ extension NextLevel {
                    }
                }
             }
-            
+
             if let bestFormat = bestFormat,
                let bestFrameRateRange = bestFrameRateRange {
                 do {
                     try device.lockForConfiguration()
-                    
+
                     // Set the device's active format.
                     device.activeFormat = bestFormat
-                    
+
                     // Set the device's min/max frame duration.
                     let duration = bestFrameRateRange.minFrameDuration
                     device.activeVideoMinFrameDuration = duration
                     device.activeVideoMaxFrameDuration = duration
-                    
+
                     device.unlockForConfiguration()
                 } catch {
                     // Handle error.
@@ -2380,7 +2386,7 @@ extension NextLevel {
             }
         }
     }
-    
+
 }
 
 // MARK: - video capture
@@ -2393,11 +2399,13 @@ extension NextLevel {
             var deviceTypes: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera,
                                                              .builtInTelephotoCamera,
                                                              .builtInDualCamera,
-                                                             .builtInTrueDepthCamera]
-            if #available(iOS 13.0, *) {
-                deviceTypes.append(contentsOf: [.builtInUltraWideCamera, .builtInDualWideCamera, .builtInTripleCamera])
-            }
-
+                                                             .builtInTrueDepthCamera,
+                                                             .builtInUltraWideCamera,
+                                                             .builtInDualWideCamera,
+                                                             .builtInTripleCamera]
+//            if #available(iOS 15.4, *) {
+//                deviceTypes.append(contentsOf: [.builtInLiDARDepthCamera])
+//            }
             let discoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: deviceTypes, mediaType: AVMediaType.video, position: .unspecified)
             return discoverySession.devices.count > 0
         }
@@ -2426,8 +2434,7 @@ extension NextLevel {
                     do {
                         try device.lockForConfiguration()
 
-                        let zoom: Float = max(1, min(newValue, Float(device.activeFormat.videoMaxZoomFactor)))
-                        device.videoZoomFactor = CGFloat(zoom)
+                        device.videoZoomFactor = max(device.minAvailableVideoZoomFactor, min(CGFloat(newValue), device.activeFormat.videoMaxZoomFactor))
 
                         device.unlockForConfiguration()
                     } catch {
@@ -2437,6 +2444,19 @@ extension NextLevel {
             }
         }
     }
+
+	//
+	/// Fetch threshold value where a device of the specified type might be chosen when zooming in using a composite camera.
+	///
+	/// - Returns: Zoom threshold  or nil
+	public func switchOverVideoZoomFactorForDeviceType(_ deviceType: AVCaptureDevice.DeviceType) -> Float? {
+		guard let device = _currentDevice,
+			  let index = device.constituentDevices.firstIndex(where: { $0.deviceType == deviceType }) else {
+			return nil
+		}
+
+		return index > 0 ? device.virtualDeviceSwitchOverVideoZoomFactors[index - 1].floatValue : Float(device.minAvailableVideoZoomFactor)
+	}
 
     /// Triggers a photo capture from the last video frame.
     public func capturePhotoFromVideo() {
@@ -2690,6 +2710,9 @@ extension NextLevel {
             let photoSettings = AVCapturePhotoSettings(format: formatDictionary)
             photoSettings.isHighResolutionPhotoEnabled = self.photoConfiguration.isHighResolutionEnabled
             photoOutput.isHighResolutionCaptureEnabled = self.photoConfiguration.isHighResolutionEnabled
+
+			photoSettings.photoQualityPrioritization = photoConfiguration.photoQualityPrioritization
+			photoOutput.maxPhotoQualityPrioritization = photoConfiguration.photoQualityPrioritization
 
             #if USE_TRUE_DEPTH
             if photoOutput.isDepthDataDeliverySupported {
@@ -3383,12 +3406,15 @@ extension NextLevel {
             }
         })
 
-        self._observers.append(currentDevice.observe(\.exposureDuration, options: [.new]) { [weak self] _, _ in
-            guard let _ = self else {
-                return
-            }
+        self._observers.append(currentDevice.observe(\.exposureDuration, options: [.new]) { [weak self] _, change in
+			guard let strongSelf = self,
+				  let exposureDuration = change.newValue else {
+				return
+			}
 
-            // TODO: add delegate callback
+			DispatchQueue.main.async {
+				strongSelf.deviceDelegate?.nextLevel(strongSelf, didChangeExposureDuration: exposureDuration)
+			}
         })
 
         self._observers.append(currentDevice.observe(\.iso, options: [.new]) { [weak self] _, _ in
