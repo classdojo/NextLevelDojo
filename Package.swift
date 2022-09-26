@@ -36,7 +36,8 @@ let package = Package(
     targets: [
       .target(
           name: "NextLevel",
-          path: "Sources"
+          path: "Sources",
+          swiftSettings: [SwiftSetting.define("IS_SPM")]
       )
     ],
     swiftLanguageVersions: [.v5]
