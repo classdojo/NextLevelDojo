@@ -28,6 +28,7 @@ import Foundation
 import AVFoundation
 import ImageIO
 import MobileCoreServices
+import UniformTypeIdentifiers
 
 private let NextLevelGIFCreatorQueueIdentifier = "engineering.NextLevel.GIF"
 
@@ -80,7 +81,7 @@ public class NextLevelGIFCreator {
 
         self._outputFilePath = outputFilePath
         self._queue.async {
-            guard let destination = CGImageDestinationCreateWithURL(outputFilePath as CFURL, kUTTypeGIF, images.count, nil) else {
+            guard let destination = CGImageDestinationCreateWithURL(outputFilePath as CFURL, UTType.gif.identifier as CFString, images.count, nil) else {
                 DispatchQueue.main.async {
                     completionHandler?(false, nil)
                 }

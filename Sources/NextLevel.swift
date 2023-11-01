@@ -2396,16 +2396,13 @@ extension NextLevel {
     /// Checks if video capture is supported by the hardware.
     public var isVideoCaptureSupported: Bool {
         get {
-            var deviceTypes: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera,
+            let deviceTypes: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera,
                                                              .builtInTelephotoCamera,
                                                              .builtInDualCamera,
                                                              .builtInTrueDepthCamera,
                                                              .builtInUltraWideCamera,
                                                              .builtInDualWideCamera,
                                                              .builtInTripleCamera]
-//            if #available(iOS 15.4, *) {
-//                deviceTypes.append(contentsOf: [.builtInLiDARDepthCamera])
-//            }
             let discoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: deviceTypes, mediaType: AVMediaType.video, position: .unspecified)
             return discoverySession.devices.count > 0
         }

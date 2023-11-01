@@ -759,7 +759,7 @@ extension CameraViewController: NextLevelPhotoDelegate {
 
 // MARK: - KVO
 
-private var CameraViewControllerNextLevelCurrentDeviceObserverContext = "CameraViewControllerNextLevelCurrentDeviceObserverContext"
+private var CameraViewControllerNextLevelCurrentDeviceObserverContext: StaticString = "CameraViewControllerNextLevelCurrentDeviceObserverContext"
 
 extension CameraViewController {
 
